@@ -29,8 +29,8 @@ Stm32Scheduler::Stm32Scheduler(uint32_t timer)
    /* Setup timers upcounting and auto preload enable */
    timer_enable_preload(timer);
    timer_direction_up(timer);
-   /* Set prescaler to count at 100 kHz = 72 MHz/7200 - 1 */
-   timer_set_prescaler(timer, 719);
+   /* Set prescaler to count at 10 kHz = 72 MHz/7200 - 1 */
+   timer_set_prescaler(timer, 7199);
    /* Maximum counter value */
    timer_set_period(timer, 0xFFFF);
 
@@ -54,7 +54,7 @@ void Stm32Scheduler::AddTask(void (*function)(void), uint16_t period)
 
    /* Assign task function and period */
    functions[nextTask] = function;
-   periods  [nextTask] = period;
+   periods  [nextTask] = period * 10;
 
    /* Enable interrupt for that channel */
    timer_enable_irq(timer, TIM_DIER_CC1IE << nextTask);

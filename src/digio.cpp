@@ -23,118 +23,44 @@
 #define DIG_IO_OFF 0
 #define DIG_IO_ON  1
 
-struct IoInfo
-{
-   uint32_t port;
-   uint16_t pin;
-   PinMode::PinMode mode;
-};
+#undef DIG_IO_ENTRY
+#define DIG_IO_ENTRY(name, port, pin, mode) DigIo DigIo::name;
+DIG_IO_LIST
 
-#define DIG_IO_ENTRY(name, port, pin, mode) { port, pin, mode },
-static struct IoInfo ios[] =
+void DigIo::Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode)
 {
-   DIG_IO_LIST
-   { 0, 0, PinMode::LAST }
-};
+   uint8_t mode = GPIO_MODE_INPUT;
+   uint8_t cnf = GPIO_CNF_INPUT_PULL_UPDOWN;
+   uint16_t val = DIG_IO_OFF;
 
-/**
-* Initialize pins
-* @pre if runtime configured pins are present, configure them using Configure first
-*/
-void DigIo::Init()
-{
-   const struct IoInfo *pCur;
+   _port = port;
+   _pin = pin;
 
-   for (pCur = ios; pCur->mode != PinMode::LAST; pCur++)
+   switch (pinMode)
    {
-      uint8_t mode = GPIO_MODE_INPUT;
-      uint8_t cnf = GPIO_CNF_INPUT_PULL_UPDOWN;
-      uint16_t val = DIG_IO_OFF;
+      default:
+      case PinMode::INPUT_PD:
+         /* use defaults */
+         break;
+      case PinMode::INPUT_PU:
+         val = DIG_IO_ON;
+         break;
+      case PinMode::INPUT_FLT:
+         cnf = GPIO_CNF_INPUT_FLOAT;
+         break;
+      case PinMode::INPUT_AIN:
+         cnf = GPIO_CNF_INPUT_ANALOG;
+         break;
+      case PinMode::OUTPUT:
+         mode = GPIO_MODE_OUTPUT_50_MHZ;
+         cnf = GPIO_CNF_OUTPUT_PUSHPULL;
+         break;
+   }
 
-      switch (pCur->mode)
-      {
-         default:
-         case PinMode::INPUT_PD:
-            /* use defaults */
-            break;
-         case PinMode::INPUT_PU:
-            val = DIG_IO_ON;
-            break;
-         case PinMode::INPUT_FLT:
-            cnf = GPIO_CNF_INPUT_FLOAT;
-            break;
-         case PinMode::INPUT_AIN:
-            cnf = GPIO_CNF_INPUT_ANALOG;
-            break;
-         case PinMode::OUTPUT:
-            mode = GPIO_MODE_OUTPUT_50_MHZ;
-            cnf = GPIO_CNF_OUTPUT_PUSHPULL;
-            break;
-      }
-
-      gpio_set_mode(pCur->port, mode, cnf, pCur->pin);
-      if (DIG_IO_ON == val)
-      {
-         gpio_set(pCur->port, pCur->pin);
-      }
+   gpio_set_mode(port, mode, cnf, pin);
+   if (DIG_IO_ON == val)
+   {
+      gpio_set(port, pin);
    }
 }
 
-/** Remap GPIO pin at runtime. Must be called before Init()
- * @param[in] io io pin to reconfigure
- * @param[in] port port to use for this pin
- * @param[in] pin port-pin to use for this pin
- * @param[in] mode pinmode to use
- */
-void DigIo::Configure(Pin::DigPin io, uint32_t port, uint16_t pin, PinMode::PinMode mode)
-{
-   struct IoInfo *pIo = ios + io;
-   pIo->port = port;
-   pIo->pin = pin;
-   pIo->mode = mode;
-}
-
-/**
-* Get pin value
-*
-* @param[in] io pin index
-* @return pin value
-*/
-bool DigIo::Get(Pin::DigPin io)
-{
-   const struct IoInfo *pIo = ios + io;
-   return gpio_get(pIo->port, pIo->pin) > 0;
-}
-
-/**
-* Set pin high
-*
-* @param[in] io pin index
-*/
-void DigIo::Set(Pin::DigPin io)
-{
-   const struct IoInfo *pIo = ios + io;
-   return gpio_set(pIo->port, pIo->pin);
-}
-
-/**
-* Set pin low
-*
-* @param[in] io pin index
-*/
-void DigIo::Clear(Pin::DigPin io)
-{
-   const struct IoInfo *pIo = ios + io;
-   return gpio_clear(pIo->port, pIo->pin);
-}
-
-/**
-* Toggle pin
-*
-* @param[in] io pin index
-*/
-void DigIo::Toggle(Pin::DigPin io)
-{
-   const struct IoInfo *pIo = ios + io;
-   gpio_toggle(pIo->port, pIo->pin);
-}
