@@ -29,8 +29,8 @@ Stm32Scheduler::Stm32Scheduler(uint32_t timer)
    /* Setup timers upcounting and auto preload enable */
    timer_enable_preload(timer);
    timer_direction_up(timer);
-   /* Set prescaler to count at 10 kHz = 72 MHz/7200 - 1 */
-   timer_set_prescaler(timer, 7199);
+   /* Set prescaler to count at 100 kHz = 72 MHz/7200 - 1 */
+   timer_set_prescaler(timer, 719);
    /* Maximum counter value */
    timer_set_period(timer, 0xFFFF);
 
@@ -54,7 +54,7 @@ void Stm32Scheduler::AddTask(void (*function)(void), uint16_t period)
 
    /* Assign task function and period */
    functions[nextTask] = function;
-   periods  [nextTask] = period * 10;
+   periods  [nextTask] = period * 100;
 
    /* Enable interrupt for that channel */
    timer_enable_irq(timer, TIM_DIER_CC1IE << nextTask);
@@ -88,7 +88,7 @@ int Stm32Scheduler::GetCpuLoad()
    int totalLoad = 0;
    for (int i = 0; i < MAX_TASKS; i++)
    {
-      int load = (1000 * execTicks[i]) / periods[i];
+      int load = (10 * execTicks[i]) / periods[i];
       totalLoad += load;
    }
    return totalLoad;

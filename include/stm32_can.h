@@ -48,6 +48,7 @@ public:
    static int AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain);
    static int Remove(Param::PARAM_NUM param);
    static bool FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, s32fp& gain, bool& rx);
+   static void IterateCanMap(void (*callback)(Param::PARAM_NUM, int, int, int, s32fp, bool));
 };
 
 

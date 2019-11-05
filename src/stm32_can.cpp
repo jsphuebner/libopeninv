@@ -21,6 +21,7 @@
 #include "hwdefs.h"
 #include "my_string.h"
 #include "my_math.h"
+#include "printf.h"
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
@@ -101,13 +102,14 @@ static int CopyIdMapExcept(CANIDMAP *source, CANIDMAP *dest, Param::PARAM_NUM pa
 static void ReplaceParamEnumByUid(CANIDMAP *canMap);
 static void ReplaceParamUidByEnum(CANIDMAP *canMap);
 static void ConfigureFilters();
+static void DummyCallback(uint32_t i, uint32_t* d) { i=i; d=d; }
 
 static CANIDMAP canSendMap[MAX_MESSAGES];
 static CANIDMAP canRecvMap[MAX_MESSAGES];
 static uint32_t lastRxTimestamp = 0;
 static SENDBUFFER sendBuffer[SENDBUFFER_LEN];
 static int sendCnt = 0;
-static void (*recvCallback)(uint32_t, uint32_t*) = 0;
+static void (*recvCallback)(uint32_t, uint32_t*) = DummyCallback;
 static uint16_t userIds[MAX_USER_MESSAGES];
 static int nextUserMessageIndex = 0;
 
@@ -119,11 +121,41 @@ static const CANSPEED canSpeed[Can::BaudLast] =
    { CAN_BTR_TS1_6TQ, CAN_BTR_TS2_5TQ, 3 }, //1000kbps
 };
 
+/** \brief Add periodic CAN message
+ *
+ * \param param Parameter index of parameter to be sent
+ * \param canId CAN identifier of generated message
+ * \param offset bit offset within the 64 message bits
+ * \param length number of bits
+ * \param gain Fixed point gain to be multiplied before sending
+ * \return success: number of active messages
+ * Fault:
+ * - CAN_ERR_INVALID_ID ID was > 0x7ff
+ * - CAN_ERR_INVALID_OFS Offset > 63
+ * - CAN_ERR_INVALID_LEN Length > 32
+ * - CAN_ERR_MAXMESSAGES Already 10 send messages defined
+ * - CAN_ERR_MAXITEMS Already 8 items in message
+ */
 int Can::AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain)
 {
    return Add(canSendMap, param, canId, offset, length, gain);
 }
 
+/** \brief Map data from CAN bus to parameter
+ *
+ * \param param Parameter index of parameter to be received
+ * \param canId CAN identifier of consumed message
+ * \param offset bit offset within the 64 message bits
+ * \param length number of bits
+ * \param gain Fixed point gain to be multiplied after receiving
+ * \return success: number of active messages
+ * Fault:
+ * - CAN_ERR_INVALID_ID ID was > 0x7ff
+ * - CAN_ERR_INVALID_OFS Offset > 63
+ * - CAN_ERR_INVALID_LEN Length > 32
+ * - CAN_ERR_MAXMESSAGES Already 10 receive messages defined
+ * - CAN_ERR_MAXITEMS Already 8 items in message
+ */
 int Can::AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain)
 {
    int res = Add(canRecvMap, param, canId, offset, length, gain);
@@ -131,11 +163,21 @@ int Can::AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s16f
    return res;
 }
 
+/** \brief Set function to be called for user handled CAN messages
+ *
+ * \param recv Function pointer to void func(uint32_t, uint32_t[2]) - ID, Data
+ */
 void Can::SetReceiveCallback(void (*recv)(uint32_t, uint32_t*))
 {
    recvCallback = recv;
 }
 
+/** \brief Add CAN Id to user message list
+ * \post Receive callback will be called when a message with this Id id received
+ * \param canId CAN identifier of message to be user handled
+ * \return true: success, false: already 10 messages registered
+ *
+ */
 bool Can::RegisterUserMessage(int canId)
 {
    if (nextUserMessageIndex < MAX_USER_MESSAGES)
@@ -148,6 +190,16 @@ bool Can::RegisterUserMessage(int canId)
    return false;
 }
 
+/** \brief Find first occurence of parameter in CAN map and output its mapping info
+ *
+ * \param[in] param Index of parameter to be looked up
+ * \param[out] canId CAN identifier that the parameter is mapped to
+ * \param[out] offset bit offset that the parameter is mapped to
+ * \param[out] length number of bits that the parameter is mapped to
+ * \param[out] gain Parameter gain
+ * \param[out] rx true: Parameter is received via CAN, false: sent via CAN
+ * \return true: parameter is mapped, false: not mapped
+ */
 bool Can::FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, s32fp& gain, bool& rx)
 {
    rx = false;
@@ -175,6 +227,8 @@ bool Can::FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, 
    return false;
 }
 
+/** \brief Save CAN mapping to flash
+ */
 void Can::Save()
 {
    uint32_t crc;
@@ -196,6 +250,8 @@ void Can::Save()
    ReplaceParamUidByEnum(canRecvMap);
 }
 
+/** \brief Send all defined messages
+ */
 void Can::SendAll()
 {
    forEachCanMap(curMap, canSendMap)
@@ -222,12 +278,21 @@ void Can::SendAll()
    }
 }
 
-void Can::Clear(void)
+/** \brief Clear all defined messages
+ */
+void Can::Clear()
 {
    ClearMap(canSendMap);
    ClearMap(canRecvMap);
+   ConfigureFilters();
 }
 
+/** \brief Remove all occurences of given parameter from CAN map
+ *
+ * \param param Parameter index to be removed
+ * \return int number of removed items
+ *
+ */
 int Can::Remove(Param::PARAM_NUM param)
 {
    int removed = RemoveFromMap(canSendMap, param);
@@ -236,6 +301,12 @@ int Can::Remove(Param::PARAM_NUM param)
    return removed;
 }
 
+/** \brief Init can hardware with given baud rate
+ *
+ * \param baudrate enum baudrates
+ * \return void
+ *
+ */
 void Can::Init(enum baudrates baudrate)
 {
    Clear();
@@ -262,6 +333,12 @@ void Can::Init(enum baudrates baudrate)
 	can_enable_irq(CAN1, CAN_IER_FMPIE0);
 }
 
+/** \brief Set baud rate to given value
+ *
+ * \param baudrate enum baudrates
+ * \return void
+ *
+ */
 void Can::SetBaudrate(enum baudrates baudrate)
 {
 	// CAN cell init.
@@ -285,11 +362,23 @@ void Can::SetBaudrate(enum baudrates baudrate)
 		     false);
 }
 
+/** \brief Get RTC time when last message was received
+ *
+ * \return uint32_t RTC time
+ *
+ */
 uint32_t Can::GetLastRxTimestamp()
 {
    return lastRxTimestamp;
 }
 
+/** \brief Send a user defined CAN message
+ *
+ * \param canId uint32_t
+ * \param data[2] uint32_t
+ * \return void
+ *
+ */
 void Can::Send(uint32_t canId, uint32_t data[2])
 {
    can_disable_irq(CAN1, CAN_IER_TMEIE);
@@ -309,6 +398,25 @@ void Can::Send(uint32_t canId, uint32_t data[2])
    }
 }
 
+void Can::IterateCanMap(void (*callback)(Param::PARAM_NUM, int, int, int, s32fp, bool))
+{
+   bool done = false, rx = false;
+
+   for (CANIDMAP *map = canSendMap; !done; map = canRecvMap)
+   {
+      forEachCanMap(curMap, map)
+      {
+         forEachPosMap(curPos, curMap)
+         {
+            callback((Param::PARAM_NUM)curPos->mapParam, curMap->canId, curPos->offsetBits, curPos->numBits, curPos->gain, rx);
+         }
+      }
+      done = rx;
+      rx = true;
+   }
+}
+
+/****************** Private methods and ISRs ********************/
 extern "C" void usb_lp_can_rx0_isr(void)
 {
 	uint32_t id;
