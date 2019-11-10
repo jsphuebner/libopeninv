@@ -77,7 +77,6 @@ class PiController
       int32_t frequency; //!< Calling frequency
       int32_t maxY;
       int32_t minY;
-      int32_t y; //!< Member variable "y"
 };
 
 #endif // PIREGULATOR_H
