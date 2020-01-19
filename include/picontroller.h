@@ -20,6 +20,7 @@
 #define PIREGULATOR_H
 
 #include "my_fp.h"
+#include "my_math.h"
 
 class PiController
 {
@@ -42,7 +43,11 @@ class PiController
        */
       void SetRef(s32fp val) { refVal = val; }
 
-      void SetOffset(int32_t ofs) { offset = ofs; }
+      void SetOffset(int32_t ofs)
+      {
+         offset = MAX(minY, ofs);
+         offset = MIN(maxY, offset);
+      }
 
       s32fp GetRef() { return refVal; }
 
