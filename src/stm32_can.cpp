@@ -28,13 +28,12 @@
 #include <libopencm3/stm32/flash.h>
 #include <libopencm3/stm32/crc.h>
 #include <libopencm3/stm32/rtc.h>
+#include <libopencm3/cm3/common.h>
+#include <libopencm3/cm3/nvic.h>
 #include "stm32_can.h"
 
-#define MAX_MESSAGES          10
-#define MAX_ITEMS_PER_MESSAGE 8
-#define MAX_USER_MESSAGES     10
+#define MAX_INTERFACES        2
 #define IDS_PER_BANK          4
-#define SENDBUFFER_LEN        20
 #define SDO_WRITE             0x40
 #define SDO_READ              0x22
 #define SDO_ABORT             0x80
@@ -56,63 +55,24 @@
 #error CANMAP will not fit in one flash page
 #endif
 
-typedef struct
-{
-   uint16_t mapParam;
-   s16fp gain;
-   uint8_t offsetBits;
-   int8_t numBits;
-} CANPOS;
-
-typedef struct
-{
-   uint16_t canId;
-   CANPOS items[MAX_ITEMS_PER_MESSAGE];
-} CANIDMAP;
-
-typedef struct
+struct CAN_SDO
 {
    uint8_t cmd;
    uint16_t index;
    uint8_t subIndex;
    uint32_t data;
-} __attribute__((packed)) CAN_SDO;
+} __attribute__((packed));
 
-typedef struct
+struct CANSPEED
 {
    uint32_t ts1;
    uint32_t ts2;
    uint32_t prescaler;
-} CANSPEED;
+};
 
-typedef struct
-{
-   uint16_t id;
-   uint32_t data[2];
-} SENDBUFFER;
+Can* Can::interfaces[MAX_INTERFACES];
 
-static void ProcessSDO(uint32_t data[2]);
-static void ClearMap(CANIDMAP *canMap);
-static int RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param);
-static int Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain);
-static uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
-static int LoadFromFlash();
-static CANIDMAP *FindById(CANIDMAP *canMap, int canId);
-static int CopyIdMapExcept(CANIDMAP *source, CANIDMAP *dest, Param::PARAM_NUM param);
-static void ReplaceParamEnumByUid(CANIDMAP *canMap);
-static void ReplaceParamUidByEnum(CANIDMAP *canMap);
-static void ConfigureFilters();
 static void DummyCallback(uint32_t i, uint32_t* d) { i=i; d=d; }
-
-static CANIDMAP canSendMap[MAX_MESSAGES];
-static CANIDMAP canRecvMap[MAX_MESSAGES];
-static uint32_t lastRxTimestamp = 0;
-static SENDBUFFER sendBuffer[SENDBUFFER_LEN];
-static int sendCnt = 0;
-static void (*recvCallback)(uint32_t, uint32_t*) = DummyCallback;
-static uint16_t userIds[MAX_USER_MESSAGES];
-static int nextUserMessageIndex = 0;
-
 static const CANSPEED canSpeed[Can::BaudLast] =
 {
    { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 9 }, //250kbps
@@ -302,35 +262,65 @@ int Can::Remove(Param::PARAM_NUM param)
 }
 
 /** \brief Init can hardware with given baud rate
+ * Initializes the following sub systems:
+ * - CAN hardware itself
+ * - Appropriate GPIO pins (non-remapped)
+ * - Enables appropriate interrupts in NVIC
  *
+ * \param baseAddr base address of CAN peripheral, CAN1 or CAN2
  * \param baudrate enum baudrates
  * \return void
  *
  */
-void Can::Init(enum baudrates baudrate)
+Can::Can(uint32_t baseAddr, enum baudrates baudrate)
+   : lastRxTimestamp(0), sendCnt(0), recvCallback(DummyCallback), nextUserMessageIndex(0), canDev(baseAddr)
 {
    Clear();
    LoadFromFlash();
 
-	AFIO_MAPR |= AFIO_MAPR_CAN1_REMAP_PORTA;
+   switch (baseAddr)
+   {
+      case CAN1:
+         // Configure CAN pin: RX (input pull-up).
+         gpio_set_mode(GPIO_BANK_CAN1_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN1_RX);
+         gpio_set(GPIO_BANK_CAN1_RX, GPIO_CAN1_RX);
+         // Configure CAN pin: TX.-
+         gpio_set_mode(GPIO_BANK_CAN1_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN1_TX);
+         //CAN1 RX and TX IRQs
+         nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ); //CAN RX
+         nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, 0xf << 4); //lowest priority
+         nvic_enable_irq(NVIC_CAN_RX1_IRQ); //CAN RX
+         nvic_set_priority(NVIC_CAN_RX1_IRQ, 0xf << 4); //lowest priority
+         nvic_enable_irq(NVIC_USB_HP_CAN_TX_IRQ); //CAN TX
+         nvic_set_priority(NVIC_USB_HP_CAN_TX_IRQ, 0xf << 4); //lowest priority
+         interfaces[0] = this;
+         break;
+      case CAN2:
+         // Configure CAN pin: RX (input pull-up).
+         gpio_set_mode(GPIO_BANK_CAN2_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN2_RX);
+         gpio_set(GPIO_BANK_CAN2_RX, GPIO_CAN2_RX);
+         // Configure CAN pin: TX.-
+         gpio_set_mode(GPIO_BANK_CAN2_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN2_TX);
 
-	// Configure CAN pin: RX (input pull-up).
-	gpio_set_mode(GPIO_BANK_CAN1_RX, GPIO_MODE_INPUT,
-		      GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN1_RX);
-	gpio_set(GPIO_BANK_CAN1_RX, GPIO_CAN1_RX);
-
-	// Configure CAN pin: TX.-
-	gpio_set_mode(GPIO_BANK_CAN1_TX, GPIO_MODE_OUTPUT_50_MHZ,
-		      GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN1_TX);
-
+         //CAN2 RX and TX IRQs
+         nvic_enable_irq(NVIC_CAN2_RX0_IRQ); //CAN RX
+         nvic_set_priority(NVIC_CAN2_RX0_IRQ, 0xf << 4); //lowest priority
+         nvic_enable_irq(NVIC_CAN2_RX1_IRQ); //CAN RX
+         nvic_set_priority(NVIC_CAN2_RX1_IRQ, 0xf << 4); //lowest priority
+         nvic_enable_irq(NVIC_CAN2_TX_IRQ); //CAN RX
+         nvic_set_priority(NVIC_CAN2_TX_IRQ, 0xf << 4); //lowest priority
+         interfaces[1] = this;
+         break;
+   }
 
 	// Reset CAN
-	can_reset(CAN1);
+	can_reset(canDev);
 
 	SetBaudrate(baudrate);
    ConfigureFilters();
-	// Enable CAN RX interrupt.
-	can_enable_irq(CAN1, CAN_IER_FMPIE0);
+	// Enable CAN RX interrupts.
+	can_enable_irq(canDev, CAN_IER_FMPIE0);
+	can_enable_irq(canDev, CAN_IER_FMPIE1);
 }
 
 /** \brief Set baud rate to given value
@@ -347,11 +337,11 @@ void Can::SetBaudrate(enum baudrates baudrate)
 	 // 1tq sync + 9tq bit segment1 (TS1) + 6tq bit segment2 (TS2) =
 	 // 16time quanto per bit period, therefor 4MHz/16 = 250kHz
 	 //
-	can_init(CAN1,
+	can_init(canDev,
 		     false,          // TTCM: Time triggered comm mode?
 		     true,           // ABOM: Automatic bus-off management?
 		     false,          // AWUM: Automatic wakeup mode?
-		     false,          // NART: No automatic retransmission?
+		     true,          // NART: No automatic retransmission?
 		     false,          // RFLM: Receive FIFO locked mode?
 		     false,          // TXFP: Transmit FIFO priority?
 		     CAN_BTR_SJW_1TQ,
@@ -381,9 +371,9 @@ uint32_t Can::GetLastRxTimestamp()
  */
 void Can::Send(uint32_t canId, uint32_t data[2])
 {
-   can_disable_irq(CAN1, CAN_IER_TMEIE);
+   can_disable_irq(canDev, CAN_IER_TMEIE);
 
-   if (can_transmit(CAN1, canId, false, false, 8, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
+   if (can_transmit(canDev, canId, false, false, 8, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
    {
       /* enqueue in send buffer if all TX mailboxes are full */
       sendBuffer[sendCnt].id = canId;
@@ -394,7 +384,7 @@ void Can::Send(uint32_t canId, uint32_t data[2])
 
    if (sendCnt > 0)
    {
-      can_enable_irq(CAN1, CAN_IER_TMEIE);
+      can_enable_irq(canDev, CAN_IER_TMEIE);
    }
 }
 
@@ -416,72 +406,79 @@ void Can::IterateCanMap(void (*callback)(Param::PARAM_NUM, int, int, int, s32fp,
    }
 }
 
-/****************** Private methods and ISRs ********************/
-extern "C" void usb_lp_can_rx0_isr(void)
+Can* Can::GetInterface(int index)
 {
-	uint32_t id;
+   if (index < MAX_INTERFACES)
+   {
+      return interfaces[index];
+   }
+   return 0;
+}
+
+void Can::HandleRx(int fifo)
+{
+   uint32_t id;
 	bool ext, rtr;
 	uint8_t length, fmi;
 	uint32_t data[2];
 
-   for (int fifo = 0; fifo < 2; fifo++)
+   while (can_receive(canDev, fifo, true, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, NULL) > 0)
    {
-      while (can_receive(CAN1, fifo, true, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, NULL) > 0)
+      //printf("fifo: %d, id: %x, len: %d, data[0]: %x, data[1]: %x\r\n", fifo, id, length, data[0], data[1]);
+      if (id == 0x601 && length == 8) //SDO request, nodeid=1
       {
-         //printf("fifo: %d, id: %x, len: %d, data[0]: %x, data[1]: %x\r\n", fifo, id, length, data[0], data[1]);
-         if (id == 0x601 && length == 8) //SDO request, nodeid=1
-         {
-            ProcessSDO(data);
-         }
-         else
-         {
-            CANIDMAP *recvMap = FindById(canRecvMap, id);
+         ProcessSDO(data);
+      }
+      else
+      {
+         CANIDMAP *recvMap = FindById(canRecvMap, id);
 
-            if (0 != recvMap)
+         if (0 != recvMap)
+         {
+            forEachPosMap(curPos, recvMap)
             {
-               forEachPosMap(curPos, recvMap)
+               s32fp val;
+
+               if (curPos->offsetBits > 31)
                {
-                  s32fp val;
-
-                  if (curPos->offsetBits > 31)
-                  {
-                     val = FP_FROMINT((data[1] >> (curPos->offsetBits - 32)) & ((1 << curPos->numBits) - 1));
-                  }
-                  else
-                  {
-                     val = FP_FROMINT((data[0] >> curPos->offsetBits) & ((1 << curPos->numBits) - 1));
-                  }
-                  val = FP_MUL(val, curPos->gain);
-
-                  if (Param::IsParam((Param::PARAM_NUM)curPos->mapParam))
-                     Param::Set((Param::PARAM_NUM)curPos->mapParam, val);
-                  else
-                     Param::SetFlt((Param::PARAM_NUM)curPos->mapParam, val);
+                  val = FP_FROMINT((data[1] >> (curPos->offsetBits - 32)) & ((1 << curPos->numBits) - 1));
                }
-               lastRxTimestamp = rtc_get_counter_val();
+               else
+               {
+                  val = FP_FROMINT((data[0] >> curPos->offsetBits) & ((1 << curPos->numBits) - 1));
+               }
+               val = FP_MUL(val, curPos->gain);
+
+               if (Param::IsParam((Param::PARAM_NUM)curPos->mapParam))
+                  Param::Set((Param::PARAM_NUM)curPos->mapParam, val);
+               else
+                  Param::SetFlt((Param::PARAM_NUM)curPos->mapParam, val);
             }
-            else //Now it must be a user message, as filters block everything else
-            {
-               recvCallback(id, data);
-            }
+            lastRxTimestamp = rtc_get_counter_val();
+         }
+         else //Now it must be a user message, as filters block everything else
+         {
+            recvCallback(id, data);
          }
       }
    }
 }
 
-extern "C" void usb_hp_can_tx_isr()
+void Can::HandleTx()
 {
-   while (sendCnt > 0 && can_transmit(CAN1, sendBuffer[sendCnt - 1].id, false, false, 8, (uint8_t*)sendBuffer[sendCnt - 1].data) >= 0)
+   while (sendCnt > 0 && can_transmit(canDev, sendBuffer[sendCnt - 1].id, false, false, 8, (uint8_t*)sendBuffer[sendCnt - 1].data) >= 0)
       sendCnt--;
 
    if (sendCnt == 0)
    {
-      can_disable_irq(CAN1, CAN_IER_TMEIE);
+      can_disable_irq(canDev, CAN_IER_TMEIE);
    }
 }
 
+/****************** Private methods and ISRs ********************/
+
 //http://www.byteme.org.uk/canopenparent/canopen/sdo-service-data-objects-canopen/
-static void ProcessSDO(uint32_t data[2])
+void Can::ProcessSDO(uint32_t data[2])
 {
    CAN_SDO *sdo = (CAN_SDO*)data;
    if (sdo->index == 0x2000 && sdo->subIndex < Param::PARAM_LAST)
@@ -541,7 +538,7 @@ static void ProcessSDO(uint32_t data[2])
    Can::Send(0x581, data);
 }
 
-static void SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
+void Can::SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
 {
    can_filter_id_list_16bit_init(
          filterId,
@@ -556,11 +553,11 @@ static void SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
    idList[0] = idList[1] = idList[2] = idList[3] = 0;
 }
 
-static void ConfigureFilters()
+void Can::ConfigureFilters()
 {
    uint16_t idList[IDS_PER_BANK] = { 0x601, 0, 0, 0 };
    int idIndex = 1;
-   int filterId = 0;
+   int filterId = canDev == CAN1 ? 0 : ((CAN_FMR(CAN2) >> 8) & 0x3F);
 
    for (int i = 0; i < nextUserMessageIndex; i++)
    {
@@ -590,7 +587,7 @@ static void ConfigureFilters()
    }
 }
 
-static int LoadFromFlash()
+int Can::LoadFromFlash()
 {
    uint32_t* data = (uint32_t *)CANMAP_ADDRESS;
    uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS;
@@ -610,7 +607,7 @@ static int LoadFromFlash()
    return 0;
 }
 
-static int RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
+int Can::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
 {
    CANIDMAP copyMap[MAX_MESSAGES];
 
@@ -622,7 +619,7 @@ static int RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
    return removed;
 }
 
-static int Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain)
+int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain)
 {
    if (canId > 0x7ff) return CAN_ERR_INVALID_ID;
    if (offset > 63) return CAN_ERR_INVALID_OFS;
@@ -659,7 +656,7 @@ static int Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offset, 
    return count;
 }
 
-static void ClearMap(CANIDMAP *canMap)
+void Can::ClearMap(CANIDMAP *canMap)
 {
    for (int i = 0; i < MAX_MESSAGES; i++)
    {
@@ -672,7 +669,7 @@ static void ClearMap(CANIDMAP *canMap)
    }
 }
 
-static CANIDMAP *FindById(CANIDMAP *canMap, int canId)
+Can::CANIDMAP* Can::FindById(CANIDMAP *canMap, int canId)
 {
    for (int i = 0; i < MAX_MESSAGES; i++)
    {
@@ -682,7 +679,7 @@ static CANIDMAP *FindById(CANIDMAP *canMap, int canId)
    return 0;
 }
 
-static uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len)
+uint32_t Can::SaveToFlash(uint32_t baseAddress, uint32_t* data, int len)
 {
    uint32_t crc = 0;
 
@@ -696,7 +693,7 @@ static uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len)
    return crc;
 }
 
-static int CopyIdMapExcept(CANIDMAP *source, CANIDMAP *dest, Param::PARAM_NUM param)
+int Can::CopyIdMapExcept(CANIDMAP *source, CANIDMAP *dest, Param::PARAM_NUM param)
 {
    int i = 0, removed = 0;
 
@@ -729,7 +726,7 @@ static int CopyIdMapExcept(CANIDMAP *source, CANIDMAP *dest, Param::PARAM_NUM pa
    return removed;
 }
 
-static void ReplaceParamEnumByUid(CANIDMAP *canMap)
+void Can::ReplaceParamEnumByUid(CANIDMAP *canMap)
 {
    forEachCanMap(curMap, canMap)
    {
@@ -741,7 +738,7 @@ static void ReplaceParamEnumByUid(CANIDMAP *canMap)
    }
 }
 
-static void ReplaceParamUidByEnum(CANIDMAP *canMap)
+void Can::ReplaceParamUidByEnum(CANIDMAP *canMap)
 {
    forEachCanMap(curMap, canMap)
    {
@@ -751,4 +748,35 @@ static void ReplaceParamUidByEnum(CANIDMAP *canMap)
          curPos->mapParam = param;
       }
    }
+}
+
+/* Interrupt service routines */
+extern "C" void usb_lp_can_rx0_isr(void)
+{
+   Can::GetInterface(0)->HandleRx(0);
+}
+
+extern "C" void can_rx1_isr()
+{
+   Can::GetInterface(0)->HandleRx(1);
+}
+
+extern "C" void usb_hp_can_tx_isr()
+{
+   Can::GetInterface(0)->HandleTx();
+}
+
+extern "C" void can2_rx0_isr()
+{
+   Can::GetInterface(1)->HandleRx(0);
+}
+
+extern "C" void can2_rx1_isr()
+{
+   Can::GetInterface(1)->HandleRx(1);
+}
+
+extern "C" void can2_tx_isr()
+{
+   Can::GetInterface(1)->HandleTx();
 }
