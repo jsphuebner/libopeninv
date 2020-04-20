@@ -106,7 +106,7 @@ int parm_load()
       for (unsigned int idxPage = 0; idxPage < NUM_PARAMS; idxPage++)
       {
          Param::PARAM_NUM idx = Param::NumFromId(parmPage->data[idxPage].key);
-         if (idx != Param::PARAM_INVALID)
+         if (idx != Param::PARAM_INVALID && parmPage->data[idxPage].key > 0)
          {
             Param::SetFlt(idx, parmPage->data[idxPage].value);
             Param::SetFlagsRaw(idx, parmPage->data[idxPage].flags);

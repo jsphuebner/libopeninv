@@ -20,7 +20,7 @@
 #include "my_math.h"
 
 PiController::PiController()
- : kp(0), ki(0), esum(0), refVal(0), frequency(1), maxY(0), minY(0), y(0)
+ : kp(0), ki(0), esum(0), refVal(0), frequency(1), maxY(0), minY(0)
 {
 }
 
@@ -28,15 +28,11 @@ int32_t PiController::Run(s32fp curVal)
 {
    s32fp err = refVal - curVal;
 
-   if (y < maxY && y > minY)
-   {
-      esum += err;
-   }
+   esum += err;
+   int32_t y = FP_TOINT(err * kp + (esum / frequency) * ki);
+   int32_t ylim = MAX(y, minY);
+   ylim = MIN(ylim, maxY);
+   esum += ((ylim - y) * frequency) / (ki + 1); //anti windup
 
-   y = offset + FP_TOINT(err * kp + (esum / frequency) * ki);
-
-   y = MAX(y, minY);
-   y = MIN(y, maxY);
-
-   return y;
+   return ylim;
 }

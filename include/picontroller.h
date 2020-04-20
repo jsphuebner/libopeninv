@@ -20,6 +20,7 @@
 #define PIREGULATOR_H
 
 #include "my_fp.h"
+#include "my_math.h"
 
 class PiController
 {
@@ -37,12 +38,13 @@ class PiController
          this->ki = ki;
       }
 
+      void SetProportionalGain(int kp) { this->kp = kp; }
+      void SetIntegralGain(int ki) { this->ki = ki; }
+
       /** Set regulator target set point
        * \param val regulator target
        */
       void SetRef(s32fp val) { refVal = val; }
-
-      void SetOffset(int32_t ofs) { offset = ofs; }
 
       s32fp GetRef() { return refVal; }
 
@@ -73,11 +75,9 @@ class PiController
       int32_t ki; //!< Member variable "ki"
       s32fp esum; //!< Member variable "esum"
       s32fp refVal;
-      int32_t offset;
       int32_t frequency; //!< Calling frequency
       int32_t maxY;
       int32_t minY;
-      int32_t y; //!< Member variable "y"
 };
 
 #endif // PIREGULATOR_H
