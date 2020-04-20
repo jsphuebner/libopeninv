@@ -27,15 +27,19 @@
 #define ADC_DMA_CHAN 1
 #define MEDIAN3_FROM_ADC_ARRAY(a) median3(*a, *(a + ANA_IN_COUNT), *(a + 2*ANA_IN_COUNT))
 
+uint8_t AnaIn::channel_array[ANA_IN_COUNT];
 uint16_t AnaIn::values[NUM_SAMPLES*ANA_IN_COUNT];
+
+#undef ANA_IN_ENTRY
+#define ANA_IN_ENTRY(name, port, pin) AnaIn AnaIn::name(__COUNTER__);
+ANA_IN_LIST
+#undef ANA_IN_ENTRY
 
 /**
 * Initialize ADC hardware and start DMA based conversion process
 */
-void AnaIn::Init(AnaInfo ins[])
+void AnaIn::Start()
 {
-   uint8_t channel_array[16];
-
    adc_power_off(ADC1);
    adc_enable_scan_mode(ADC1);
    adc_set_continuous_conversion_mode(ADC1);
@@ -49,11 +53,11 @@ void AnaIn::Init(AnaInfo ins[])
    adc_reset_calibration(ADC1);
    adc_calibrate(ADC1);
 
-   for (int numChan = 0; numChan < ANA_IN_COUNT; numChan++)
+   /*for (int numChan = 0; numChan < ANA_IN_COUNT; numChan++)
    {
       gpio_set_mode(ins[numChan].port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_ANALOG, 1 << ins[numChan].pin);
       channel_array[numChan] = AdcChFromPort(ins[numChan].port, ins[numChan].pin);
-   }
+   }*/
 
    adc_set_regular_sequence(ADC1, ANA_IN_COUNT, channel_array);
    adc_enable_dma(ADC1);
@@ -71,6 +75,12 @@ void AnaIn::Init(AnaInfo ins[])
    adc_start_conversion_direct(ADC1);
 }
 
+void AnaIn::Configure(uint32_t port, uint8_t pin)
+{
+   gpio_set_mode(port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_ANALOG, 1 << pin);
+   channel_array[GetIndex()] = AdcChFromPort(port, pin);
+}
+
 /**
 * Get filtered value of given channel
 *
@@ -79,18 +89,16 @@ void AnaIn::Init(AnaInfo ins[])
 *  - NUM_SAMPLES = 9: Median of last 3 medians is returned
 *  - NUM_SAMPLES = 12: Average of last 4 medians is returned
 *
-* @param[in] in channel index
 * @return Filtered value
 */
-uint16_t AnaIn::Get(AnaIn::AnaIns in)
+uint16_t AnaIn::Get()
 {
    #if NUM_SAMPLES == 1
-   return values[in];
+   return *firstValue;
    #elif NUM_SAMPLES == 3
-   uint16_t *curVal = &values[in];
-   return MEDIAN3_FROM_ADC_ARRAY(curVal);
+   return MEDIAN3_FROM_ADC_ARRAY(firstValue);
    #elif NUM_SAMPLES == 9
-   uint16_t *curVal = &values[in];
+   uint16_t *curVal = firstValue;
    uint16_t med[3];
 
    for (int i = 0; i < 3; i++, curVal += 3*ANA_IN_COUNT)
@@ -98,9 +106,9 @@ uint16_t AnaIn::Get(AnaIn::AnaIns in)
       med[i] = MEDIAN3_FROM_ADC_ARRAY(curVal);
    }
 
-   return median3(med[0], med[1], med[2]);
+   return MEDIAN3(med[0], med[1], med[2]);
    #elif NUM_SAMPLES == 12
-   uint16_t *curVal = &values[in];
+   uint16_t *curVal = firstValue;
    uint16_t med[4];
 
    for (int i = 0; i < 4; i++, curVal += 3*ANA_IN_COUNT)
@@ -110,7 +118,7 @@ uint16_t AnaIn::Get(AnaIn::AnaIns in)
 
    return (med[0] + med[1] + med[2] + med[3]) >> 2;
    #else
-   #error NUM_SAMPLES must be 1, 3 or 9
+   #error NUM_SAMPLES must be 1, 3, 9 or 12
    #endif
 }
 

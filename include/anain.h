@@ -8,12 +8,14 @@
 class AnaIn
 {
 public:
-   #define ANA_IN_ENTRY(name, port, pin) name,
-   enum AnaIns
-   {
-       ANA_IN_LIST
-       ANA_IN_COUNT
-   };
+   AnaIn(int chan): firstValue(&values[chan]) {}
+
+   #define ANA_IN_ENTRY(name, port, pin) static AnaIn name;
+   ANA_IN_LIST
+   #undef ANA_IN_ENTRY
+
+   #define ANA_IN_ENTRY(name, port, pin) +1
+   static const int ANA_IN_COUNT = ANA_IN_LIST;
    #undef ANA_IN_ENTRY
 
    struct AnaInfo
@@ -22,21 +24,23 @@ public:
       uint16_t pin;
    };
 
-   static void Init(AnaInfo ins[]);
-   static uint16_t Get(AnaIn::AnaIns);
+   static void Start();
+   void Configure(uint32_t port, uint8_t pin);
+   uint16_t Get();
+   uint16_t GetIndex() { return firstValue - values; }
 
 private:
-   static const AnaInfo ins[];
    static uint16_t values[];
+   static uint8_t channel_array[];
 
    static uint8_t AdcChFromPort(uint32_t command_port, int command_bit);
    static int median3(int a, int b, int c);
+
+   uint16_t* const firstValue;
 };
 
-#define ANA_IN_ENTRY(name, port, pin) { port, pin },
-/** Usage: AnaIn::AnaInfo analogInputs[] = ANA_IN_ARRAY(ANA_IN_LIST);
- * AnaIn::Init(analogInputs); */
-#define ANA_IN_ARRAY(l) { l }
-
+//Configure all AnaIn objects from the given list
+#define ANA_IN_ENTRY(name, port, pin) AnaIn::name.Configure(port, pin);
+#define ANA_IN_CONFIGURE(l) l
 
 #endif // ANAIO_H_INCLUDED
