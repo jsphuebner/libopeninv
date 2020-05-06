@@ -53,12 +53,6 @@ void AnaIn::Start()
    adc_reset_calibration(ADC1);
    adc_calibrate(ADC1);
 
-   /*for (int numChan = 0; numChan < ANA_IN_COUNT; numChan++)
-   {
-      gpio_set_mode(ins[numChan].port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_ANALOG, 1 << ins[numChan].pin);
-      channel_array[numChan] = AdcChFromPort(ins[numChan].port, ins[numChan].pin);
-   }*/
-
    adc_set_regular_sequence(ADC1, ANA_IN_COUNT, channel_array);
    adc_enable_dma(ADC1);
 
