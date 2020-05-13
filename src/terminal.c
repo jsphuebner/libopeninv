@@ -113,11 +113,14 @@ int putchar(int c)
 {
    static uint32_t curIdx = 0, curBuf = 0, first = 1;
 
+#ifdef UARTDMABLOCKED
    if (hwRev == HW_REV1)
    {
       usart_send_blocking(TERM_USART, c);
    }
-   else if (c == '\n' || curIdx == (TERM_BUFSIZE - 1))
+   else
+#endif
+   if (c == '\n' || curIdx == (TERM_BUFSIZE - 1))
    {
       outBuf[curBuf][curIdx] = c;
 
