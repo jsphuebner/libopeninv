@@ -37,6 +37,7 @@ int my_ltoa(char *buf, int val, int base);
 int my_atoi(const char *str);
 char *my_trim(char *str);
 void memcpy32(int* target, int *source, int length);
+void memset32(int* target, int value, int length);
 void my_strcpy(char *str1, const char *str2);
 
 #ifdef __cplusplus
