@@ -68,6 +68,11 @@ class PiController
       /** Reset integrator to 0 */
       void ResetIntegrator() { esum = 0; }
 
+      /** Preload Integrator to yield a certain output
+       * @pre SetCallingFrequency() and SetGains() must be called first
+      */
+      void PreloadIntegrator(int32_t yieldedOutput) { esum = (yieldedOutput * frequency) / (ki + 1); }
+
    protected:
 
    private:
