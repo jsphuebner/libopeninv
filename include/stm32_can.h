@@ -41,7 +41,8 @@ public:
    Can(uint32_t baseAddr, enum baudrates baudrate);
    void Clear(void);
    void SetBaudrate(enum baudrates baudrate);
-   void Send(uint32_t canId, uint32_t data[2]);
+   void Send(uint32_t canId, uint32_t data[2]) { Send(canId, data, 8); }
+   void Send(uint32_t canId, uint32_t data[2], uint8_t len);
    void SendAll();
    void Save();
    void SetReceiveCallback(void (*recv)(uint32_t, uint32_t*));
@@ -79,6 +80,7 @@ private:
    struct SENDBUFFER
    {
       uint16_t id;
+      uint32_t len;
       uint32_t data[2];
    };
 
