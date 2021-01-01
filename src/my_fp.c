@@ -69,7 +69,7 @@ s32fp fp_atoi(const char *str)
    {
       for (str++; *str >= '0' && *str <= '9'; str++)
       {
-         frac += FP_FROMINT(*str - '0') / div;
+         frac += (div / 2 + FP_FROMINT(*str - '0')) / div;
          div *= 10;
       }
    }
