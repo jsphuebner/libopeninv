@@ -220,7 +220,12 @@ void Can::SendAll()
 
       forEachPosMap(curPos, curMap)
       {
-         s32fp val = FP_MUL(Param::Get((Param::PARAM_NUM)curPos->mapParam), curPos->gain);
+         s32fp val = Param::Get((Param::PARAM_NUM)curPos->mapParam);
+
+         if (curPos->gain <= 32 && curPos->gain >= -32)
+            val = FP_MUL(val, curPos->gain);
+         else
+            val /= curPos->gain;
 
          val &= ((1 << curPos->numBits) - 1);
 
