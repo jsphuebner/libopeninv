@@ -55,12 +55,17 @@ void DigIo::Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode)
          mode = GPIO_MODE_OUTPUT_50_MHZ;
          cnf = GPIO_CNF_OUTPUT_PUSHPULL;
          break;
+      case PinMode::OUTPUT_OD:
+         mode = GPIO_MODE_OUTPUT_50_MHZ;
+         cnf = GPIO_CNF_OUTPUT_OPENDRAIN;
+         val = DIG_IO_ON;
+         break;
    }
 
-   gpio_set_mode(port, mode, cnf, pin);
    if (DIG_IO_ON == val)
    {
       gpio_set(port, pin);
    }
+   gpio_set_mode(port, mode, cnf, pin);
 }
 

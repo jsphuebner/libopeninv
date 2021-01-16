@@ -12,6 +12,7 @@ namespace PinMode {
        INPUT_FLT,
        INPUT_AIN,
        OUTPUT,
+       OUTPUT_OD,
        LAST
    };
 }
