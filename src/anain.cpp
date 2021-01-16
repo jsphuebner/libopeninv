@@ -53,12 +53,6 @@ void AnaIn::Start()
    adc_reset_calibration(ADC1);
    adc_calibrate(ADC1);
 
-   /*for (int numChan = 0; numChan < ANA_IN_COUNT; numChan++)
-   {
-      gpio_set_mode(ins[numChan].port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_ANALOG, 1 << ins[numChan].pin);
-      channel_array[numChan] = AdcChFromPort(ins[numChan].port, ins[numChan].pin);
-   }*/
-
    adc_set_regular_sequence(ADC1, ANA_IN_COUNT, channel_array);
    adc_enable_dma(ADC1);
 
@@ -84,10 +78,11 @@ void AnaIn::Configure(uint32_t port, uint8_t pin)
 /**
 * Get filtered value of given channel
 *
-*  - NUM_SAMPLES = 1: Most recent raw value is returned
-*  - NUM_SAMPLES = 3: Median of last 3 values is returned
+*  - NUM_SAMPLES = 1: Most recent sample is returned
+*  - NUM_SAMPLES = 3: Median of last 3 samples is returned
 *  - NUM_SAMPLES = 9: Median of last 3 medians is returned
 *  - NUM_SAMPLES = 12: Average of last 4 medians is returned
+*  - NUM_SAMPLES = 64: Average of last 64 samples is returned
 *
 * @return Filtered value
 */
@@ -117,8 +112,18 @@ uint16_t AnaIn::Get()
    }
 
    return (med[0] + med[1] + med[2] + med[3]) >> 2;
+   #elif NUM_SAMPLES == 64
+   uint16_t *curVal = firstValue;
+   uint32_t sum = 0;
+
+   for (int i = 0; i < NUM_SAMPLES; i++, curVal += ANA_IN_COUNT)
+   {
+      sum += *curVal;
+   }
+
+   return sum >> 6;
    #else
-   #error NUM_SAMPLES must be 1, 3, 9 or 12
+   #error NUM_SAMPLES must be 1, 3, 9, 12 or 64
    #endif
 }
 

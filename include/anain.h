@@ -18,21 +18,15 @@ public:
    static const int ANA_IN_COUNT = ANA_IN_LIST;
    #undef ANA_IN_ENTRY
 
-   struct AnaInfo
-   {
-      uint32_t port;
-      uint16_t pin;
-   };
-
    static void Start();
    void Configure(uint32_t port, uint8_t pin);
    uint16_t Get();
-   uint16_t GetIndex() { return firstValue - values; }
 
 private:
    static uint16_t values[];
    static uint8_t channel_array[];
 
+   uint16_t GetIndex() { return firstValue - values; }
    static uint8_t AdcChFromPort(uint32_t command_port, int command_bit);
    static int median3(int a, int b, int c);
 
