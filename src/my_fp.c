@@ -49,7 +49,7 @@ char* fp_itoa(char * buf, s32fp a)
    return buf;
 }
 
-s32fp fp_atoi(const char *str)
+s32fp fp_atoi(const char *str, int fracDigits)
 {
    int nat = 0;
    int frac = 0;
@@ -69,12 +69,12 @@ s32fp fp_atoi(const char *str)
    {
       for (str++; *str >= '0' && *str <= '9'; str++)
       {
-         frac += (div / 2 + FP_FROMINT(*str - '0')) / div;
+         frac += (div / 2 + ((*str - '0') << fracDigits)) / div;
          div *= 10;
       }
    }
 
-   return sign * (FP_FROMINT(nat) + frac);
+   return sign * ((nat << fracDigits) + frac);
 }
 
 u32fp fp_sqrt(u32fp rad)
