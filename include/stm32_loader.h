@@ -1,7 +1,10 @@
+#ifndef STM32_LOADER_H_INCLUDED
+#define STM32_LOADER_H_INCLUDED
+
 /*
  * This file is part of the tumanako_vc project.
  *
- * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
+ * Copyright (C) 2018 Johannes Huebner <dev@johanneshuebner.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,30 +19,28 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <stdint.h>
 
-#ifndef NULL
-#define NULL 0L
-#endif
+#define PINDEF_ADDRESS 0x0801F400
+#define NUM_PIN_COMMANDS 10
+#define PIN_IN 0
+#define PIN_OUT 1
 
-#define TOSTR_(...) #__VA_ARGS__
-#define STRINGIFY(x) TOSTR_(x)
-
-#ifdef __cplusplus
-extern "C"
+struct pindef
 {
-#endif
+   uint32_t port;
+   uint16_t pin;
+   uint8_t inout;
+   uint8_t level;
+};
 
-int my_strcmp(const char *str1, const char *str2);
-void my_strcat(char *str1, const char *str2);
-int my_strlen(const char *str);
-const char *my_strchr(const char *str, const char c);
-int my_ltoa(char *buf, int val, int base);
-int my_atoi(const char *str);
-char *my_trim(char *str);
-void memcpy32(int* target, int *source, int length);
-void memset32(int* target, int value, int length);
-void my_strcpy(char *str1, const char *str2);
+struct pincommands
+{
+   struct pindef pindef[NUM_PIN_COMMANDS];
+   uint32_t crc;
+};
 
-#ifdef __cplusplus
-}
-#endif
+#define PINDEF_NUMWORDS (sizeof(struct pindef) * NUM_PIN_COMMANDS / 4)
+
+
+#endif // STM32_LOADER_H_INCLUDED

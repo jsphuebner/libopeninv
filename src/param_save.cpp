@@ -22,6 +22,7 @@
 #include "params.h"
 #include "param_save.h"
 #include "hwdefs.h"
+#include "my_string.h"
 
 #define NUM_PARAMS ((PARAM_BLKSIZE - 8) / sizeof(PARAM_ENTRY))
 #define PARAM_WORDS (PARAM_BLKSIZE / 4)
@@ -52,30 +53,18 @@ uint32_t parm_save()
    unsigned int idx;
 
    crc_reset();
+   memset32((int*)&parmPage, 0xFFFFFFFF, PARAM_WORDS);
 
    //Copy parameter values and keys to block structure
    for (idx = 0; Param::IsParam((Param::PARAM_NUM)idx) && idx < NUM_PARAMS; idx++)
    {
       const Param::Attributes *pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
-      parmPage.data[idx].dummy = 0;
       parmPage.data[idx].flags = (uint8_t)Param::GetFlag((Param::PARAM_NUM)idx);
       parmPage.data[idx].key = pAtr->id;
       parmPage.data[idx].value = Param::Get((Param::PARAM_NUM)idx);
-      crc_calculate(((uint32_t*)&parmPage.data[idx])[0]); //Treat 3 fields as uint32_t
-      crc_calculate(parmPage.data[idx].value);
-   }
-   //Pad the remaining space and the CRC calculcator with 1's
-   for (; idx < NUM_PARAMS; idx++)
-   {
-      parmPage.data[idx].dummy = 0xff;
-      parmPage.data[idx].flags = 0xff;
-      parmPage.data[idx].key = 0xffff;
-      parmPage.data[idx].value = 0xffffffff;
-      crc_calculate(0xffffffff);
-      parmPage.crc = crc_calculate(0xffffffff);
    }
 
-   parmPage.padding = 0xffffffff;
+   parmPage.crc = crc_calculate_block(((uint32_t*)&parmPage), (2 * NUM_PARAMS));
    flash_unlock();
    flash_erase_page(PARAM_ADDRESS);
 

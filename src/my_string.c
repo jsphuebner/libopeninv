@@ -140,3 +140,9 @@ void memcpy32(int* target, int *source, int length)
    while (length--)
       *target++ = *source++;
 }
+
+void memset32(int* target, int value, int length)
+{
+   while (length--)
+      *target++ = value;
+}
