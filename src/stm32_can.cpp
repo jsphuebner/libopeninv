@@ -46,12 +46,12 @@
 #define CRC_ADDRESS           (CANMAP_ADDRESS + sizeof(canSendMap) + sizeof(canRecvMap))
 #define SENDMAP_WORDS         (sizeof(canSendMap) / sizeof(uint32_t))
 #define RECVMAP_WORDS         (sizeof(canRecvMap) / sizeof(uint32_t))
-#define CANID_UNSET           0xffff
+#define CANID_UNSET           0xffffffff
 #define NUMBITS_LASTMARKER    -1
 #define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->canId < CANID_UNSET; c++)
 #define forEachPosMap(c,m) for (CANPOS *c = m->items; (c - m->items) < MAX_ITEMS_PER_MESSAGE && c->numBits > 0; c++)
 
-#if (2 *((MAX_ITEMS_PER_MESSAGE * 6 + 2) * MAX_MESSAGES + 2) + 4) > FLASH_PAGE_SIZE
+#if (2 *((MAX_ITEMS_PER_MESSAGE * 6 + 2) * MAX_MESSAGES + 4) + 4) > FLASH_PAGE_SIZE
 #error CANMAP will not fit in one flash page
 #endif
 
@@ -75,6 +75,7 @@ Can* Can::interfaces[MAX_INTERFACES];
 static void DummyCallback(uint32_t i, uint32_t* d) { i=i; d=d; }
 static const CANSPEED canSpeed[Can::BaudLast] =
 {
+   { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 18}, //125kbps
    { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 9 }, //250kbps
    { CAN_BTR_TS1_4TQ, CAN_BTR_TS2_3TQ, 9 }, //500kbps
    { CAN_BTR_TS1_5TQ, CAN_BTR_TS2_3TQ, 5 }, //800kbps
@@ -90,7 +91,7 @@ static const CANSPEED canSpeed[Can::BaudLast] =
  * \param gain Fixed point gain to be multiplied before sending
  * \return success: number of active messages
  * Fault:
- * - CAN_ERR_INVALID_ID ID was > 0x7ff
+ * - CAN_ERR_INVALID_ID ID was > 0x1fffffff
  * - CAN_ERR_INVALID_OFS Offset > 63
  * - CAN_ERR_INVALID_LEN Length > 32
  * - CAN_ERR_MAXMESSAGES Already 10 send messages defined
@@ -110,7 +111,7 @@ int Can::AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s16f
  * \param gain Fixed point gain to be multiplied after receiving
  * \return success: number of active messages
  * Fault:
- * - CAN_ERR_INVALID_ID ID was > 0x7ff
+ * - CAN_ERR_INVALID_ID ID was > 0x1fffffff
  * - CAN_ERR_INVALID_OFS Offset > 63
  * - CAN_ERR_INVALID_LEN Length > 32
  * - CAN_ERR_MAXMESSAGES Already 10 receive messages defined
@@ -341,7 +342,7 @@ void Can::SetBaudrate(enum baudrates baudrate)
 		     false,          // TTCM: Time triggered comm mode?
 		     true,           // ABOM: Automatic bus-off management?
 		     false,          // AWUM: Automatic wakeup mode?
-		     true,          // NART: No automatic retransmission?
+		     false,          // NART: No automatic retransmission?
 		     false,          // RFLM: Receive FIFO locked mode?
 		     false,          // TXFP: Transmit FIFO priority?
 		     CAN_BTR_SJW_1TQ,
@@ -373,7 +374,7 @@ void Can::Send(uint32_t canId, uint32_t data[2])
 {
    can_disable_irq(canDev, CAN_IER_TMEIE);
 
-   if (can_transmit(canDev, canId, false, false, 8, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
+   if (can_transmit(canDev, canId, canId > 0x7FF, false, 8, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
    {
       /* enqueue in send buffer if all TX mailboxes are full */
       sendBuffer[sendCnt].id = canId;
@@ -466,7 +467,7 @@ void Can::HandleRx(int fifo)
 
 void Can::HandleTx()
 {
-   while (sendCnt > 0 && can_transmit(canDev, sendBuffer[sendCnt - 1].id, false, false, 8, (uint8_t*)sendBuffer[sendCnt - 1].data) >= 0)
+   while (sendCnt > 0 && can_transmit(canDev, sendBuffer[sendCnt - 1].id, sendBuffer[sendCnt - 1].id > 0x7FF, false, 8, (uint8_t*)sendBuffer[sendCnt - 1].data) >= 0)
       sendCnt--;
 
    if (sendCnt == 0)
@@ -621,7 +622,7 @@ int Can::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
 
 int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain)
 {
-   if (canId > 0x7ff) return CAN_ERR_INVALID_ID;
+   if (canId > 0x1fffffff) return CAN_ERR_INVALID_ID;
    if (offset > 63) return CAN_ERR_INVALID_OFS;
    if (length > 32) return CAN_ERR_INVALID_LEN;
 
@@ -669,7 +670,7 @@ void Can::ClearMap(CANIDMAP *canMap)
    }
 }
 
-Can::CANIDMAP* Can::FindById(CANIDMAP *canMap, int canId)
+Can::CANIDMAP* Can::FindById(CANIDMAP *canMap, uint32_t canId)
 {
    for (int i = 0; i < MAX_MESSAGES; i++)
    {

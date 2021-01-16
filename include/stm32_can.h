@@ -35,7 +35,7 @@ class Can
 public:
    enum baudrates
    {
-      Baud250, Baud500, Baud800, Baud1000, BaudLast
+      Baud125, Baud250, Baud500, Baud800, Baud1000, BaudLast
    };
 
    Can(uint32_t baseAddr, enum baudrates baudrate);
@@ -72,13 +72,13 @@ private:
 
    struct CANIDMAP
    {
-      uint16_t canId;
+      uint32_t canId;
       CANPOS items[MAX_ITEMS_PER_MESSAGE];
    };
 
    struct SENDBUFFER
    {
-      uint16_t id;
+      uint32_t id;
       uint32_t data[2];
    };
 
@@ -98,7 +98,7 @@ private:
    int Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain);
    uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
    int LoadFromFlash();
-   CANIDMAP *FindById(CANIDMAP *canMap, int canId);
+   CANIDMAP *FindById(CANIDMAP *canMap, uint32_t canId);
    int CopyIdMapExcept(CANIDMAP *source, CANIDMAP *dest, Param::PARAM_NUM param);
    void ReplaceParamEnumByUid(CANIDMAP *canMap);
    void ReplaceParamUidByEnum(CANIDMAP *canMap);
