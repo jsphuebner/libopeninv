@@ -24,7 +24,6 @@
 #include <libopencm3/stm32/dma.h>
 #include "terminal.h"
 #include "hwdefs.h"
-#include <stdarg.h>
 
 static const TERM_CMD *CmdLookup(char *buf);
 static void term_send(uint32_t usart, const char *str);
@@ -109,7 +108,7 @@ void term_Run()
  * buffering, so while one buffer is sent by DMA we can prepare the other
  * buffer to go next.
 */
-int putchar(int c)
+extern "C" int putchar(int c)
 {
    static uint32_t curIdx = 0, curBuf = 0, first = 1;
 
