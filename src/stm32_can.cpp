@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2016 Nail Güzel
  * Johannes Huebner <dev@johanneshuebner.com>
@@ -352,6 +352,7 @@ Can::Can(uint32_t baseAddr, enum baudrates baudrate, bool remap)
          break;
    }
 
+   nodeId = 1;
 	// Reset CAN
 	can_reset(canDev);
 
@@ -405,6 +406,7 @@ uint32_t Can::GetLastRxTimestamp()
  *
  * \param canId uint32_t
  * \param data[2] uint32_t
+ * \param len message length
  * \return void
  *
  */
@@ -465,7 +467,7 @@ void Can::HandleRx(int fifo)
    while (can_receive(canDev, fifo, true, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, NULL) > 0)
    {
       //printf("fifo: %d, id: %x, len: %d, data[0]: %x, data[1]: %x\r\n", fifo, id, length, data[0], data[1]);
-      if (id == 0x601 && length == 8) //SDO request, nodeid=1
+      if (id == (0x600U + nodeId) && length == 8) //SDO request, nodeid=1
       {
          ProcessSDO(data);
       }
@@ -520,17 +522,36 @@ void Can::HandleTx()
    }
 }
 
+void Can::SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, uint32_t data)
+{
+   uint32_t d[2];
+   CAN_SDO *sdo = (CAN_SDO*)d;
+
+   sdo->cmd = SDO_WRITE;
+   sdo->index = index;
+   sdo->subIndex = subIndex;
+   sdo->data = data;
+
+   Send(0x600 + remoteNodeId, d);
+}
+
 /****************** Private methods and ISRs ********************/
 
 //http://www.byteme.org.uk/canopenparent/canopen/sdo-service-data-objects-canopen/
 void Can::ProcessSDO(uint32_t data[2])
 {
    CAN_SDO *sdo = (CAN_SDO*)data;
-   if (sdo->index == 0x2000 && sdo->subIndex < Param::PARAM_LAST)
+   if (sdo->index >= 0x2000 && sdo->index <= 0x2001 && sdo->subIndex < Param::PARAM_LAST)
    {
+      Param::PARAM_NUM paramIdx = (Param::PARAM_NUM)sdo->subIndex;
+
+      //SDO index 0x2001 will lookup the parameter by its unique ID
+      if (sdo->index == 0x2001)
+         paramIdx = Param::NumFromId(sdo->subIndex);
+
       if (sdo->cmd == SDO_WRITE)
       {
-         if (Param::Set((Param::PARAM_NUM)sdo->subIndex, sdo->data) == 0)
+         if (Param::Set(paramIdx, sdo->data) == 0)
          {
             sdo->cmd = SDO_WRITE_REPLY;
          }
@@ -542,7 +563,7 @@ void Can::ProcessSDO(uint32_t data[2])
       }
       else if (sdo->cmd == SDO_READ)
       {
-         sdo->data = Param::Get((Param::PARAM_NUM)sdo->subIndex);
+         sdo->data = Param::Get(paramIdx);
          sdo->cmd = SDO_READ_REPLY;
       }
    }
@@ -580,7 +601,7 @@ void Can::ProcessSDO(uint32_t data[2])
       sdo->cmd = SDO_ABORT;
       sdo->data = SDO_ERR_INVIDX;
    }
-   Can::Send(0x581, data);
+   Can::Send(0x580 + nodeId, data);
 }
 
 void Can::SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
@@ -600,9 +621,11 @@ void Can::SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
 
 void Can::ConfigureFilters()
 {
-   uint16_t idList[IDS_PER_BANK] = { 0x601, 0, 0, 0 };
+   uint16_t idList[IDS_PER_BANK] = { 0, 0, 0, 0 };
    int idIndex = 1;
    int filterId = canDev == CAN1 ? 0 : ((CAN_FMR(CAN2) >> 8) & 0x3F);
+
+   idList[0] = 0x600 + nodeId;
 
    for (int i = 0; i < nextUserMessageIndex; i++)
    {

@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2012 Johannes Huebner <contact@johanneshuebner.com>
  *
@@ -31,7 +31,7 @@
 #define PHASE_SHIFT120  ((uint32_t)(     SINLU_ONEREV / 3))
 #define PHASE_SHIFT240  ((uint32_t)(2 * (SINLU_ONEREV / 3)))
 
-uint32_t SineCore::minPulse = 0;
+const uint32_t SineCore::minPulse = 1000;
 uint32_t SineCore::ampl = 0;
 const int16_t SineCore::SinTab[] = { SINTAB };/* sine LUT */
 const uint16_t SineCore::ZERO_OFFSET = SINTAB_MAX / 2;
@@ -145,14 +145,6 @@ void SineCore::SetAmp(uint32_t amp /**< amplitude in digit. Largest value is 378
 uint32_t SineCore::GetAmp()
 {
    return ampl;
-}
-
-/** Sets the minimum pulse width in normalized digits.
-  * @post duty cylcles shorter than minWidth are supressed, both on the negative and the positive pulse
-  */
-void SineCore::SetMinPulseWidth(uint32_t minWidth)
-{
-   minPulse = minWidth;
 }
 
 /* Performs a lookup in the sine table */
