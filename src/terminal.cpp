@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
  *
@@ -24,82 +24,143 @@
 #include <libopencm3/stm32/dma.h>
 #include "terminal.h"
 #include "hwdefs.h"
+#include "printf.h"
 
-static const TERM_CMD *CmdLookup(char *buf);
-static void term_send(uint32_t usart, const char *str);
-static void ResetDMA();
+#define HWINFO_ENTRIES (sizeof(hwInfo) / sizeof(struct HwInfo))
 
-extern const TERM_CMD TermCmds[];
-static char inBuf[TERM_BUFSIZE];
-static char outBuf[2][TERM_BUFSIZE]; //double buffering
-
-void term_Init()
+const Terminal::HwInfo Terminal::hwInfo[] =
 {
+   { USART1, DMA_CHANNEL4, DMA_CHANNEL5, GPIOA, GPIO_USART1_TX, GPIOB, GPIO_USART1_RE_TX },
+   { USART2, DMA_CHANNEL7, DMA_CHANNEL6, GPIOA, GPIO_USART2_TX, GPIOD, GPIO_USART2_RE_TX },
+   { USART3, DMA_CHANNEL2, DMA_CHANNEL3, GPIOB, GPIO_USART3_TX, GPIOC, GPIO_USART3_PR_TX },
+};
+
+Terminal* Terminal::defaultTerminal;
+
+Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap)
+:  usart(usart),
+   remap(remap),
+   termCmds(commands),
+   nodeId(1),
+   enabled(true),
+   pCurCmd(NULL),
+   lastIdx(0),
+   curBuf(0),
+   curIdx(0),
+   firstSend(true)
+{
+   //Search info entry
+   hw = hwInfo;
+   for (uint32_t i = 0; i < HWINFO_ENTRIES; i++)
+   {
+      if (hw->usart == usart) break;
+      hw++;
+   }
+
+   defaultTerminal = this;
+
+   gpio_set_mode(remap ? hw->port_re : hw->port, GPIO_MODE_OUTPUT_50_MHZ,
+               GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, remap ? hw->pin_re : hw->pin);
+
+   usart_set_baudrate(usart, USART_BAUDRATE);
+   usart_set_databits(usart, 8);
+   usart_set_stopbits(usart, USART_STOPBITS_2);
+   usart_set_mode(usart, USART_MODE_TX_RX);
+   usart_set_parity(usart, USART_PARITY_NONE);
+   usart_set_flow_control(usart, USART_FLOWCONTROL_NONE);
+   usart_enable_rx_dma(usart);
+   usart_enable_tx_dma(usart);
+
+   dma_channel_reset(DMA1, hw->dmatx);
+   dma_set_read_from_memory(DMA1, hw->dmatx);
+   dma_set_peripheral_address(DMA1, hw->dmatx, (uint32_t)&USART_DR(usart));
+   dma_set_peripheral_size(DMA1, hw->dmatx, DMA_CCR_PSIZE_8BIT);
+   dma_set_memory_size(DMA1, hw->dmatx, DMA_CCR_MSIZE_8BIT);
+   dma_enable_memory_increment_mode(DMA1, hw->dmatx);
+
+   dma_channel_reset(DMA1, hw->dmarx);
+   dma_set_peripheral_address(DMA1, hw->dmarx, (uint32_t)&USART_DR(usart));
+   dma_set_peripheral_size(DMA1, hw->dmarx, DMA_CCR_PSIZE_8BIT);
+   dma_set_memory_size(DMA1, hw->dmarx, DMA_CCR_MSIZE_8BIT);
+   dma_enable_memory_increment_mode(DMA1, hw->dmarx);
+   dma_enable_channel(DMA1, hw->dmarx);
+
    ResetDMA();
+
+   usart_enable(usart);
 }
 
 /** Run the terminal */
-void term_Run()
+void Terminal::Run()
 {
-   char args[TERM_BUFSIZE];
-   const TERM_CMD *pCurCmd = NULL;
-   int lastIdx = 0;
+   int numRcvd = dma_get_number_of_data(DMA1, hw->dmarx);
+   int currentIdx = bufSize - numRcvd;
 
-   while (1)
+   if (0 == numRcvd)
+      ResetDMA();
+
+   while (lastIdx < currentIdx) //echo
+      usart_send_blocking(usart, inBuf[lastIdx++]);
+
+   if (currentIdx > 0)
    {
-      int numRcvd = dma_get_number_of_data(DMA1, TERM_USART_DMARX);
-      int currentIdx = TERM_BUFSIZE - numRcvd;
+      if (inBuf[currentIdx - 1] == '\n' || inBuf[currentIdx - 1] == '\r')
+      {
+         inBuf[currentIdx] = 0;
+         lastIdx = 0;
+         char *space = (char*)my_strchr(inBuf, ' ');
 
-      if (0 == numRcvd)
+         if (0 == *space) //No args after command, look for end of line
+         {
+            space = (char*)my_strchr(inBuf, '\n');
+            args[0] = 0;
+         }
+         else //There are arguments, copy everything behind the space
+         {
+            my_strcpy(args, space + 1);
+         }
+
+         if (0 == *space) //No \n found? try \r
+            space = (char*)my_strchr(inBuf, '\r');
+
+         *space = 0;
+         pCurCmd = NULL;
+
+         if (my_strcmp(inBuf, "enableuart") == 0)
+         {
+            EnableUart(args);
+            currentIdx = 0; //Prevent unknown command message
+         }
+         else if (my_strcmp(inBuf, "fastuart") == 0)
+         {
+            FastUart(args);
+            currentIdx = 0;
+         }
+         else
+         {
+            pCurCmd = CmdLookup(inBuf);
+         }
+
          ResetDMA();
 
-      while (lastIdx < currentIdx) //echo
-         usart_send_blocking(TERM_USART, inBuf[lastIdx++]);
-
-      if (currentIdx > 0)
-      {
-         if (inBuf[currentIdx - 1] == '\n' || inBuf[currentIdx - 1] == '\r')
+         if (NULL != pCurCmd)
          {
-            inBuf[currentIdx] = 0;
-            lastIdx = 0;
-            char *space = (char*)my_strchr(inBuf, ' ');
-
-            if (0 == *space) //No args after command, look for end of line
-            {
-               space = (char*)my_strchr(inBuf, '\n');
-               args[0] = 0;
-            }
-            else //There are arguments, copy everything behind the space
-            {
-               my_strcpy(args, space + 1);
-            }
-
-            if (0 == *space) //No \n found? try \r
-               space = (char*)my_strchr(inBuf, '\r');
-
-            *space = 0;
-            pCurCmd = CmdLookup(inBuf);
-            ResetDMA();
-
-            if (NULL != pCurCmd)
-            {
-               usart_wait_send_ready(TERM_USART);
-               pCurCmd->CmdFunc(args);
-            }
-            else if (currentIdx > 1)
-            {
-               term_send(TERM_USART, "Unknown command sequence\r\n");
-            }
+            usart_wait_send_ready(usart);
+            pCurCmd->CmdFunc(this, args);
          }
-         else if (inBuf[0] == '!' && NULL != pCurCmd)
+         else if (currentIdx > 1 && enabled)
          {
-            ResetDMA();
-            lastIdx = 0;
-            pCurCmd->CmdFunc(args);
+            Send("Unknown command sequence\r\n");
          }
       }
-   } /* while(1) */
-} /* term_Run */
+      else if (inBuf[0] == '!' && NULL != pCurCmd)
+      {
+         ResetDMA();
+         lastIdx = 0;
+         pCurCmd->CmdFunc(this, args);
+      }
+   }
+}
 
 /*
  * Revision 1 hardware can only use synchronous sending as the DMA channel is
@@ -108,31 +169,26 @@ void term_Run()
  * buffering, so while one buffer is sent by DMA we can prepare the other
  * buffer to go next.
 */
-extern "C" int putchar(int c)
+void Terminal::PutChar(char c)
 {
-   static uint32_t curIdx = 0, curBuf = 0, first = 1;
-
-#ifdef UARTDMABLOCKED
    if (hwRev == HW_REV1)
    {
-      usart_send_blocking(TERM_USART, c);
+      usart_send_blocking(usart, c);
    }
-   else
-#endif
-   if (c == '\n' || curIdx == (TERM_BUFSIZE - 1))
+   else if (c == '\n' || curIdx == (bufSize - 1))
    {
       outBuf[curBuf][curIdx] = c;
 
-      while (!dma_get_interrupt_flag(DMA1, TERM_USART_DMATX, DMA_TCIF) && !first);
+      while (!dma_get_interrupt_flag(DMA1, hw->dmatx, DMA_TCIF) && !firstSend);
 
-      dma_disable_channel(DMA1, TERM_USART_DMATX);
-      dma_set_number_of_data(DMA1, TERM_USART_DMATX, curIdx + 1);
-      dma_set_memory_address(DMA1, TERM_USART_DMATX, (uint32_t)outBuf[curBuf]);
-      dma_clear_interrupt_flags(DMA1, TERM_USART_DMATX, DMA_TCIF);
-      dma_enable_channel(DMA1, TERM_USART_DMATX);
+      dma_disable_channel(DMA1, hw->dmatx);
+      dma_set_number_of_data(DMA1, hw->dmatx, curIdx + 1);
+      dma_set_memory_address(DMA1, hw->dmatx, (uint32_t)outBuf[curBuf]);
+      dma_clear_interrupt_flags(DMA1, hw->dmatx, DMA_TCIF);
+      dma_enable_channel(DMA1, hw->dmatx);
 
       curBuf = !curBuf; //switch buffers
-      first = 0; //only needed once so we don't get stuck in the while loop above
+      firstSend = false; //only needed once so we don't get stuck in the while loop above
       curIdx = 0;
    }
    else
@@ -140,20 +196,69 @@ extern "C" int putchar(int c)
       outBuf[curBuf][curIdx] = c;
       curIdx++;
    }
-   return 0;
 }
 
-static void ResetDMA()
+extern "C" void putchar(int c)
 {
-   dma_disable_channel(DMA1, TERM_USART_DMARX);
-   dma_set_memory_address(DMA1, TERM_USART_DMARX, (uint32_t)inBuf);
-   dma_set_number_of_data(DMA1, TERM_USART_DMARX, TERM_BUFSIZE);
-   dma_enable_channel(DMA1, TERM_USART_DMARX);
+   Terminal::defaultTerminal->PutChar(c);
 }
 
-static const TERM_CMD *CmdLookup(char *buf)
+bool Terminal::KeyPressed()
 {
-   const TERM_CMD *pCmd = TermCmds;
+   return usart_get_flag(usart, USART_SR_RXNE);
+}
+
+void Terminal::FlushInput()
+{
+   usart_recv(usart);
+}
+
+void Terminal::ResetDMA()
+{
+   dma_disable_channel(DMA1, hw->dmarx);
+   dma_set_memory_address(DMA1, hw->dmarx, (uint32_t)inBuf);
+   dma_set_number_of_data(DMA1, hw->dmarx, bufSize);
+   dma_enable_channel(DMA1, hw->dmarx);
+}
+
+void Terminal::EnableUart(char* arg)
+{
+   arg = my_trim(arg);
+   int val = my_atoi(arg);
+
+   if (val == nodeId)
+   {
+      enabled = true;
+      gpio_set_mode(remap ? hw->port_re : hw->port, GPIO_MODE_OUTPUT_50_MHZ,
+               GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, remap ? hw->pin_re : hw->pin);
+      Send("OK\r\n");
+   }
+   else
+   {
+      enabled = false;
+      gpio_set_mode(remap ? hw->port_re : hw->port, GPIO_MODE_INPUT,
+               GPIO_CNF_INPUT_FLOAT, remap ? hw->pin_re : hw->pin);
+   }
+}
+
+void Terminal::FastUart(char *arg)
+{
+   arg = my_trim(arg);
+   int baud = arg[0] == '0' ? USART_BAUDRATE : 921600;
+   if (enabled)
+   {
+      Send("OK\r\n");
+      Send("Baud rate now 921600\r\n");
+   }
+   usart_set_baudrate(usart, baud);
+   usart_set_stopbits(usart, USART_STOPBITS_1);
+}
+
+const TERM_CMD* Terminal::CmdLookup(char *buf)
+{
+   const TERM_CMD *pCmd = termCmds;
+
+   if (!enabled) return NULL;
 
    for (; NULL != pCmd->cmd; pCmd++)
    {
@@ -169,10 +274,8 @@ static const TERM_CMD *CmdLookup(char *buf)
    return pCmd;
 }
 
-static void term_send(uint32_t usart, const char *str)
+void Terminal::Send(const char *str)
 {
    for (;*str > 0; str++)
        usart_send_blocking(usart, *str);
 }
-
-

@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
  *
@@ -16,23 +16,64 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef TERMINAL_H
+#define TERMINAL_H
 #include <stdint.h>
+#include "printf.h"
+
+class Terminal;
 
 typedef struct
 {
    char const *cmd;
-   void (*CmdFunc)(char*);
+   void (*CmdFunc)(Terminal*, char*);
 } TERM_CMD;
 
-#ifdef __cplusplus
-extern "C"
+class Terminal: public IPutChar
 {
-#endif
+public:
+   Terminal(uint32_t usart, const TERM_CMD* commands, bool remap = false);
+   void SetNodeId(uint8_t id) { nodeId = id; }
+   void Run();
+   void PutChar(char c);
+   bool KeyPressed();
+   void FlushInput();
+   static Terminal* defaultTerminal;
 
-void term_Init();
-void term_Run();
-void term_Send(char *str);
+private:
+   struct HwInfo
+   {
+      uint32_t usart;
+      uint8_t dmatx;
+      uint8_t dmarx;
+      uint32_t port;
+      uint16_t pin;
+      uint32_t port_re;
+      uint16_t pin_re;
+   };
 
-#ifdef __cplusplus
-}
-#endif
+   void ResetDMA();
+   const TERM_CMD *CmdLookup(char *buf);
+   void EnableUart(char* arg);
+   void FastUart(char* arg);
+   void Send(const char *str);
+
+   static const int bufSize = 128;
+   static const HwInfo hwInfo[];
+   const HwInfo* hw;
+   uint32_t usart;
+   bool remap;
+   const TERM_CMD* termCmds;
+   uint8_t nodeId;
+   bool enabled;
+   const TERM_CMD *pCurCmd;
+   int lastIdx;
+   uint8_t curBuf;
+   uint32_t curIdx;
+   bool firstSend;
+   char inBuf[bufSize];
+   char outBuf[2][bufSize]; //double buffering
+   char args[bufSize];
+};
+
+#endif // TERMINAL_H

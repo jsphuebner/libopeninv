@@ -1,9 +1,7 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
- * Copyright (C) 2010 Johannes Huebner <contact@johanneshuebner.com>
- * Copyright (C) 2010 Edward Cheeseman <cheesemanedward@gmail.com>
- * Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
+ * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,17 +25,16 @@
 #define debugf(...)
 #endif
 
-#ifdef __cplusplus
-extern "C"
+class IPutChar
 {
-#endif
+public:
+   virtual void PutChar(char c) = 0;
+};
+
 
 int printf(const char *format, ...);
 int sprintf(char *out, const char *format, ...);
-
-#ifdef __cplusplus
-}
-#endif
+int fprintf(IPutChar* put, const char *format, ...);
 
 
 #endif // PRINTF_H_INCLUDED

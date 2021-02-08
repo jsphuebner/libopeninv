@@ -1,7 +1,7 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
- * Copyright (C) 2012 Johannes Huebner <contact@johanneshuebner.com>
+ * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,7 +30,6 @@ class SineCore
       static uint16_t Atan2(int32_t cos, int32_t sin);
       static void SetAmp(uint32_t amp);
       static uint32_t GetAmp();
-      static void SetMinPulseWidth(uint32_t minWidth);
       static int32_t CalcSVPWMOffset(int32_t a, int32_t b, int32_t c);
       static uint32_t DutyCycles[3];
       static uint32_t Offset;
@@ -44,7 +43,7 @@ class SineCore
       static int32_t max(int32_t a, int32_t b);
 
       /** Minimum pulse width in normalized digits */
-      static uint32_t minPulse;
+      static const uint32_t minPulse;
       static uint32_t ampl;
       static const int16_t SinTab[]; /* sine LUT */
       static const uint16_t ZERO_OFFSET;

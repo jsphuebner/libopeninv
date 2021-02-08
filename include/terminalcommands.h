@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2021 Johannes Huebner <dev@johanneshuebner.com>
  *
@@ -23,16 +23,15 @@
 class TerminalCommands
 {
    public:
-      static void ParamSet(char* arg);
-      static void ParamGet(char *arg);
-      static void ParamFlag(char *arg);
-      static void ParamStream(char *arg);
-      static void PrintParamsJson(char *arg);
-      static void MapCan(char *arg);
-      static void SaveParameters(char *arg);
-      static void LoadParameters(char *arg);
-      static void Reset(char *arg);
-      static void FastUart(char *arg);
+      static void ParamSet(Terminal* term, char* arg);
+      static void ParamGet(Terminal* term, char *arg);
+      static void ParamFlag(Terminal* term, char *arg);
+      static void ParamStream(Terminal* term, char *arg);
+      static void PrintParamsJson(Terminal* term, char *arg);
+      static void MapCan(Terminal* term, char *arg);
+      static void SaveParameters(Terminal* term, char *arg);
+      static void LoadParameters(Terminal* term, char *arg);
+      static void Reset(Terminal* term, char *arg);
 
    protected:
 

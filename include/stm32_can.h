@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2016 Nail Güzel
  * Johannes Huebner <dev@johanneshuebner.com>
@@ -44,6 +44,7 @@ public:
    void Send(uint32_t canId, uint32_t data[2]) { Send(canId, data, 8); }
    void Send(uint32_t canId, uint32_t data[2], uint8_t len);
    void SendAll();
+   void SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, uint32_t data);
    void Save();
    void SetReceiveCallback(void (*recv)(uint32_t, uint32_t*));
    bool RegisterUserMessage(int canId);
@@ -55,6 +56,7 @@ public:
    void IterateCanMap(void (*callback)(Param::PARAM_NUM, int, int, int, s32fp, bool));
    void HandleRx(int fifo);
    void HandleTx();
+   void SetNodeId(uint8_t id) { nodeId = id; }
    static Can* GetInterface(int index);
 
 private:
@@ -93,6 +95,7 @@ private:
    uint16_t userIds[MAX_USER_MESSAGES];
    int nextUserMessageIndex;
    uint32_t canDev;
+   uint8_t nodeId;
 
    void ProcessSDO(uint32_t data[2]);
    void ClearMap(CANIDMAP *canMap);

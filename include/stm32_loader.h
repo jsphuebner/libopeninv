@@ -1,8 +1,5 @@
-#ifndef STM32_LOADER_H_INCLUDED
-#define STM32_LOADER_H_INCLUDED
-
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2018 Johannes Huebner <dev@johanneshuebner.com>
  *
@@ -19,6 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef STM32_LOADER_H_INCLUDED
+#define STM32_LOADER_H_INCLUDED
 #include <stdint.h>
 
 #define PINDEF_ADDRESS 0x0801F400
