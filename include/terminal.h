@@ -38,6 +38,7 @@ public:
    void PutChar(char c);
    bool KeyPressed();
    void FlushInput();
+   void DisableTxDMA();
    static Terminal* defaultTerminal;
 
 private:
@@ -66,6 +67,7 @@ private:
    const TERM_CMD* termCmds;
    uint8_t nodeId;
    bool enabled;
+   bool txDmaEnabled;
    const TERM_CMD *pCurCmd;
    int lastIdx;
    uint8_t curBuf;

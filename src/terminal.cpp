@@ -23,10 +23,13 @@
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/dma.h>
 #include "terminal.h"
-#include "hwdefs.h"
 #include "printf.h"
 
 #define HWINFO_ENTRIES (sizeof(hwInfo) / sizeof(struct HwInfo))
+
+#ifndef USART_BAUDRATE
+#define USART_BAUDRATE 115200
+#endif // USART_BAUDRATE
 
 const Terminal::HwInfo Terminal::hwInfo[] =
 {
@@ -43,6 +46,7 @@ Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap)
    termCmds(commands),
    nodeId(1),
    enabled(true),
+   txDmaEnabled(true),
    pCurCmd(NULL),
    lastIdx(0),
    curBuf(0),
@@ -171,7 +175,7 @@ void Terminal::Run()
 */
 void Terminal::PutChar(char c)
 {
-   if (hwRev == HW_REV1)
+   if (!txDmaEnabled)
    {
       usart_send_blocking(usart, c);
    }
@@ -198,11 +202,6 @@ void Terminal::PutChar(char c)
    }
 }
 
-extern "C" void putchar(int c)
-{
-   Terminal::defaultTerminal->PutChar(c);
-}
-
 bool Terminal::KeyPressed()
 {
    return usart_get_flag(usart, USART_SR_RXNE);
@@ -211,6 +210,13 @@ bool Terminal::KeyPressed()
 void Terminal::FlushInput()
 {
    usart_recv(usart);
+}
+
+void Terminal::DisableTxDMA()
+{
+   txDmaEnabled = false;
+   dma_disable_channel(DMA1, hw->dmatx);
+   usart_disable_tx_dma(usart);
 }
 
 void Terminal::ResetDMA()
@@ -278,4 +284,10 @@ void Terminal::Send(const char *str)
 {
    for (;*str > 0; str++)
        usart_send_blocking(usart, *str);
+}
+
+//Backward compatibility for printf
+extern "C" void putchar(int c)
+{
+   Terminal::defaultTerminal->PutChar(c);
 }
