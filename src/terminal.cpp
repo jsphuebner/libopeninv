@@ -166,6 +166,19 @@ void Terminal::Run()
    }
 }
 
+void Terminal::SetNodeId(uint8_t id)
+{
+   char one[] = { '1', 0 };
+   nodeId = id;
+
+   if (nodeId != 1)
+   {
+      Send("Disabling terminal, type 'enableuart <id>' to re-enable\r\n");
+   }
+
+   EnableUart(one);
+}
+
 /*
  * Revision 1 hardware can only use synchronous sending as the DMA channel is
  * occupied by the encoder timer (TIM3, channel 3).
