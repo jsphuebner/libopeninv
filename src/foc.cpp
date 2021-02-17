@@ -36,12 +36,11 @@ static const s32fp lqminusldSquaredBs10 = FP_FROMFLT(0.01722); //additional 10-b
 static const s32fp lqminusld = FP_FROMFLT(0.0058);
 static const u32fp sqrt3 = SQRT3;
 static const s32fp sqrt3inv1 = FP_FROMFLT(0.57735026919); //1/sqrt(3)
-static const s32fp sqrt3inv2 = 2*sqrt3inv1; //2/sqrt(2)
 static const s32fp zeroOffset = FP_FROMINT(1);
 static const int32_t modMax = FP_DIV(FP_FROMINT(2U), sqrt3);
 static const int32_t modMaxPow2 = modMax * modMax;
-static int32_t minPulse = 1000;
-static int32_t maxPulse = FP_FROMINT(2) - 1000;
+static const int32_t minPulse = 1000;
+static const int32_t maxPulse = FP_FROMINT(2) - 1000;
 
 s32fp FOC::id;
 s32fp FOC::iq;
@@ -57,7 +56,7 @@ void FOC::ParkClarke(s32fp il1, s32fp il2, uint16_t angle)
    s32fp cos = SineCore::Cosine(angle);
    //Clarke transformation
    s32fp ia = il1;
-   s32fp ib = FP_MUL(sqrt3inv1, il1) + FP_MUL(sqrt3inv2, il2);
+   s32fp ib = FP_MUL(sqrt3inv1, il1 + 2 * il2);
    //Park transformation
    id = FP_MUL(cos, ia) + FP_MUL(sin, ib);
    iq = FP_MUL(cos, ib) - FP_MUL(sin, ia);
