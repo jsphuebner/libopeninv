@@ -36,3 +36,14 @@ int32_t PiController::Run(s32fp curVal)
 
    return ylim;
 }
+
+int32_t PiController::RunProportionalOnly(s32fp curVal)
+{
+   s32fp err = refVal - curVal;
+
+   int32_t y = FP_TOINT(err * kp);
+   int32_t ylim = MAX(y, minY);
+   ylim = MIN(ylim, maxY);
+
+   return ylim;
+}
