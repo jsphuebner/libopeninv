@@ -231,11 +231,13 @@ void Can::SendAll()
       forEachPosMap(curPos, curMap)
       {
          s32fp val = Param::Get((Param::PARAM_NUM)curPos->mapParam);
-
+         val = FP_MUL(val, curPos->gain);
+#ifdef CAN_ALLOW_DIVISION
          if (curPos->gain <= 32 && curPos->gain >= -32)
             val = FP_MUL(val, curPos->gain);
          else
             val /= curPos->gain;
+#endif
 
          val += curPos->offset;
          val &= ((1 << curPos->numBits) - 1);
