@@ -165,5 +165,6 @@ uint8_t AnaIn::AdcChFromPort(uint32_t command_port, int command_bit)
         if (command_bit<6) return command_bit+10;
         break;
     }
+    adc_enable_temperature_sensor();
     return 16;
 }
