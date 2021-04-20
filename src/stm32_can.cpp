@@ -28,10 +28,12 @@
 #include <libopencm3/stm32/flash.h>
 #include <libopencm3/stm32/crc.h>
 #include <libopencm3/stm32/rtc.h>
+#include <libopencm3/stm32/desig.h>
 #include <libopencm3/cm3/common.h>
 #include <libopencm3/cm3/nvic.h>
 #include "stm32_can.h"
 
+#define CANMAP_ADDRESS        Can::GetFlashAddress()
 #define MAX_INTERFACES        2
 #define IDS_PER_BANK          4
 #define SDO_WRITE             0x40
@@ -51,9 +53,9 @@
 #define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->canId < CANID_UNSET; c++)
 #define forEachPosMap(c,m) for (CANPOS *c = m->items; (c - m->items) < MAX_ITEMS_PER_MESSAGE && c->numBits > 0; c++)
 
-#if (2 *((MAX_ITEMS_PER_MESSAGE * 6 + 2) * MAX_MESSAGES + 2) + 4) > FLASH_PAGE_SIZE
-#error CANMAP will not fit in one flash page
-#endif
+//#if (2 *((MAX_ITEMS_PER_MESSAGE * 6 + 2) * MAX_MESSAGES + 2) + 4) > FLASH_PAGE_SIZE
+//#error CANMAP will not fit in one flash page
+//#endif
 
 struct CAN_SDO
 {
@@ -777,6 +779,15 @@ void Can::ReplaceParamUidByEnum(CANIDMAP *canMap)
          curPos->mapParam = param;
       }
    }
+}
+
+uint32_t Can::GetFlashAddress()
+{
+   uint32_t flashSize = desig_get_flash_size();
+   uint32_t pageSize = flash_get_page_size();
+
+   //Always save CAN mapping to second-to-last flash page
+   return FLASH_BASE + flashSize * 1024 - pageSize * 2;
 }
 
 /* Interrupt service routines */

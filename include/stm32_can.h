@@ -109,6 +109,7 @@ private:
    void ReplaceParamUidByEnum(CANIDMAP *canMap);
    void ConfigureFilters();
    void SetFilterBank(int& idIndex, int& filterId, uint16_t* idList);
+   uint32_t GetFlashAddress();
 
    static Can* interfaces[];
 };
