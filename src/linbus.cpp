@@ -82,8 +82,6 @@ LinBus::LinBus(uint32_t usart, int baudrate)
  */
 void LinBus::Send(uint8_t id, uint8_t* data, uint8_t len)
 {
-   bool p1 = !(((id & 0x2) > 0) ^ ((id & 0x8) > 0) ^ ((id & 0x10) > 0) ^ ((id & 0x20) > 0));
-   bool p0 = ((id & 0x1) > 0) ^ ((id & 0x2) > 0) ^ ((id & 0x4) > 0) ^ ((id & 0x10) > 0);
    int sendLen = len == 0 ? 2 : len + 3;
 
    if (len > 8) return;
@@ -92,7 +90,7 @@ void LinBus::Send(uint8_t id, uint8_t* data, uint8_t len)
    dma_set_number_of_data(DMA1, hw->dmatx, sendLen);
 
    sendBuffer[0] = 0x55; //Sync
-   sendBuffer[1] = id | p1 << 7 | p0 << 6; //PID
+   sendBuffer[1] = Parity(id);
 
    for (uint8_t i = 0; i < len; i++)
       sendBuffer[i + 2] = data[i];
@@ -125,16 +123,16 @@ void LinBus::Receive()
 
 /** \brief Check whether we received valid data with given PID and length
  *
- * \param pid ID with parity (PID)
+ * \param pid Feature ID to check for
  * \param requiredLen Length of data we expect
  * \return true if data with given properties was received
  *
  */
-bool LinBus::HasReceived(uint8_t pid, uint8_t requiredLen)
+bool LinBus::HasReceived(uint8_t id, uint8_t requiredLen)
 {
    if (requiredLen > 8) return false;
 
-   if (receiveIdx == (requiredLen + 2) && recvBuffer[1] == pid)
+   if (receiveIdx == (requiredLen + 2) && recvBuffer[1] == Parity(id))
    {
       uint8_t checksum = Checksum(recvBuffer[1], &recvBuffer[2], requiredLen);
 
@@ -163,4 +161,12 @@ uint8_t LinBus::Checksum(uint8_t pid, uint8_t* data, int len)
       checksum = tmp;
    }
    return checksum ^ 0xff;
+}
+
+uint8_t LinBus::Parity(uint8_t id)
+{
+   bool p1 = !(((id & 0x2) > 0) ^ ((id & 0x8) > 0) ^ ((id & 0x10) > 0) ^ ((id & 0x20) > 0));
+   bool p0 = ((id & 0x1) > 0) ^ ((id & 0x2) > 0) ^ ((id & 0x4) > 0) ^ ((id & 0x10) > 0);
+
+   return id | p1 << 7 | p0 << 6;
 }

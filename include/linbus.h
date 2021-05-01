@@ -42,6 +42,7 @@ class LinBus
       };
 
       static uint8_t Checksum(uint8_t pid, uint8_t* data, int len);
+      static uint8_t Parity(uint8_t id);
 
       static const HwInfo hwInfo[];
       uint32_t usart;
