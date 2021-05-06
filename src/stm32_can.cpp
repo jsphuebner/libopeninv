@@ -33,7 +33,6 @@
 #include <libopencm3/cm3/nvic.h>
 #include "stm32_can.h"
 
-#define CANMAP_ADDRESS        Can::GetFlashAddress()
 #define MAX_INTERFACES        2
 #define IDS_PER_BANK          4
 #define SDO_WRITE             0x40
@@ -43,9 +42,9 @@
 #define SDO_READ_REPLY        0x43
 #define SDO_ERR_INVIDX        0x06020000
 #define SDO_ERR_RANGE         0x06090030
-#define SENDMAP_ADDRESS       CANMAP_ADDRESS
-#define RECVMAP_ADDRESS       (CANMAP_ADDRESS + sizeof(canSendMap))
-#define CRC_ADDRESS           (CANMAP_ADDRESS + sizeof(canSendMap) + sizeof(canRecvMap))
+#define SENDMAP_ADDRESS(b)    b
+#define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
+#define CRC_ADDRESS(b)        (b+ + sizeof(canSendMap) + sizeof(canRecvMap))
 #define SENDMAP_WORDS         (sizeof(canSendMap) / sizeof(uint32_t))
 #define RECVMAP_WORDS         (sizeof(canRecvMap) / sizeof(uint32_t))
 #define CANID_UNSET           0xffff
@@ -53,9 +52,9 @@
 #define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->canId < CANID_UNSET; c++)
 #define forEachPosMap(c,m) for (CANPOS *c = m->items; (c - m->items) < MAX_ITEMS_PER_MESSAGE && c->numBits > 0; c++)
 
-//#if (2 *((MAX_ITEMS_PER_MESSAGE * 6 + 2) * MAX_MESSAGES + 2) + 4) > FLASH_PAGE_SIZE
-//#error CANMAP will not fit in one flash page
-//#endif
+#if (2 *((MAX_ITEMS_PER_MESSAGE * 6 + 2) * MAX_MESSAGES + 2) + 4) > CAN_BLKSIZE
+#error CANMAP will not fit in one flash page
+#endif
 
 struct CAN_SDO
 {
@@ -194,18 +193,27 @@ bool Can::FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, 
 void Can::Save()
 {
    uint32_t crc;
+   uint32_t check = 0xFFFFFFFF;
+   uint32_t baseAddress = GetFlashAddress();
+   uint32_t *checkAddress = (uint32_t*)baseAddress;
+
+   for (int i = 0; i < CAN_BLKSIZE / 4; i++, checkAddress++)
+      check &= *checkAddress;
+
    crc_reset();
 
    flash_unlock();
    flash_set_ws(2);
-   flash_erase_page(CANMAP_ADDRESS);
+
+   if (check != 0xFFFFFFFF) //Only erase when needed
+      flash_erase_page(baseAddress);
 
    ReplaceParamEnumByUid(canSendMap);
    ReplaceParamEnumByUid(canRecvMap);
 
-   SaveToFlash(SENDMAP_ADDRESS, (uint32_t *)canSendMap, SENDMAP_WORDS);
-   crc = SaveToFlash(RECVMAP_ADDRESS, (uint32_t *)canRecvMap, RECVMAP_WORDS);
-   SaveToFlash(CRC_ADDRESS, &crc, 1);
+   SaveToFlash(baseAddress, (uint32_t *)canSendMap, SENDMAP_WORDS);
+   crc = SaveToFlash(RECVMAP_ADDRESS(baseAddress), (uint32_t *)canRecvMap, RECVMAP_WORDS);
+   SaveToFlash(CRC_ADDRESS(baseAddress), &crc, 1);
    flash_lock();
 
    ReplaceParamUidByEnum(canSendMap);
@@ -620,17 +628,17 @@ void Can::ConfigureFilters()
 
 int Can::LoadFromFlash()
 {
-   uint32_t* data = (uint32_t *)CANMAP_ADDRESS;
-   uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS;
+   uint32_t data = GetFlashAddress();
+   uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS(data);
    uint32_t crc;
 
    crc_reset();
-   crc = crc_calculate_block(data, SENDMAP_WORDS + RECVMAP_WORDS);
+   crc = crc_calculate_block((uint32_t*)data, SENDMAP_WORDS + RECVMAP_WORDS);
 
    if (storedCrc == crc)
    {
-      memcpy32((int*)canSendMap, (int*)SENDMAP_ADDRESS, SENDMAP_WORDS);
-      memcpy32((int*)canRecvMap, (int*)RECVMAP_ADDRESS, RECVMAP_WORDS);
+      memcpy32((int*)canSendMap, (int*)SENDMAP_ADDRESS(data), SENDMAP_WORDS);
+      memcpy32((int*)canRecvMap, (int*)RECVMAP_ADDRESS(data), RECVMAP_WORDS);
       ReplaceParamUidByEnum(canSendMap);
       ReplaceParamUidByEnum(canRecvMap);
       return 1;
@@ -784,10 +792,9 @@ void Can::ReplaceParamUidByEnum(CANIDMAP *canMap)
 uint32_t Can::GetFlashAddress()
 {
    uint32_t flashSize = desig_get_flash_size();
-   uint32_t pageSize = flash_get_page_size();
 
    //Always save CAN mapping to second-to-last flash page
-   return FLASH_BASE + flashSize * 1024 - pageSize * 2;
+   return FLASH_BASE + flashSize * 1024 - CAN_BLKSIZE * CAN_BLKNUM;
 }
 
 /* Interrupt service routines */
