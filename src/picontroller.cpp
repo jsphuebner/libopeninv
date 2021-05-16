@@ -32,7 +32,11 @@ int32_t PiController::Run(s32fp curVal)
    int32_t y = FP_TOINT(err * kp + (esum / frequency) * ki);
    int32_t ylim = MAX(y, minY);
    ylim = MIN(ylim, maxY);
-   esum += FP_FROMINT(((ylim - y) * frequency) / (ki + 1)); //anti windup
+
+   if (ki != 0)
+   {
+      esum += FP_FROMINT(((ylim - y) * frequency) / ki); //anti windup
+   }
 
    return ylim;
 }
