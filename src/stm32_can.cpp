@@ -45,8 +45,8 @@
 #define SENDMAP_ADDRESS(b)    b
 #define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
 #define CRC_ADDRESS(b)        (b+ + sizeof(canSendMap) + sizeof(canRecvMap))
-#define SENDMAP_WORDS         (sizeof(canSendMap) / sizeof(uint32_t))
-#define RECVMAP_WORDS         (sizeof(canRecvMap) / sizeof(uint32_t))
+#define SENDMAP_WORDS         (sizeof(canSendMap) / (sizeof(uint32_t)))
+#define RECVMAP_WORDS         (sizeof(canRecvMap) / (sizeof(uint32_t)))
 #define CANID_UNSET           0xffff
 #define NUMBITS_LASTMARKER    -1
 #define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->canId < CANID_UNSET; c++)
