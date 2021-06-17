@@ -64,6 +64,7 @@ private:
    static const int MAX_MESSAGES = 10;
    static const int SENDBUFFER_LEN = 20;
    static const int MAX_USER_MESSAGES = 10;
+   static volatile bool isSaving;
 
    struct CANPOS
    {
