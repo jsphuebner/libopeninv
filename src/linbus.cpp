@@ -50,9 +50,6 @@ LinBus::LinBus(uint32_t usart, int baudrate)
 
    gpio_set_mode(hw->port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, hw->pin);
 
-   //gpio_set_mode(GPIOA, GPIO_MODE_INPUT,
-   //            GPIO_CNF_INPUT_FLOAT, GPIO_USART1_RX);
-
    usart_set_baudrate(usart, baudrate);
    usart_set_databits(usart, 8);
    usart_set_stopbits(usart, USART_STOPBITS_1);
@@ -65,7 +62,7 @@ LinBus::LinBus(uint32_t usart, int baudrate)
    dma_channel_reset(DMA1, hw->dmatx);
    dma_set_read_from_memory(DMA1, hw->dmatx);
    dma_set_peripheral_address(DMA1, hw->dmatx, (uint32_t)&USART_DR(usart));
-   dma_set_memory_address(DMA1, DMA_CHANNEL4, (uint32_t)sendBuffer);
+   dma_set_memory_address(DMA1, hw->dmatx, (uint32_t)sendBuffer);
    dma_set_peripheral_size(DMA1, hw->dmatx, DMA_CCR_PSIZE_8BIT);
    dma_set_memory_size(DMA1, hw->dmatx, DMA_CCR_MSIZE_8BIT);
    dma_enable_memory_increment_mode(DMA1, hw->dmatx);

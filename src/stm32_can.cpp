@@ -45,8 +45,8 @@
 #define SENDMAP_ADDRESS(b)    b
 #define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
 #define CRC_ADDRESS(b)        (b+ + sizeof(canSendMap) + sizeof(canRecvMap))
-#define SENDMAP_WORDS         (sizeof(canSendMap) / sizeof(uint32_t))
-#define RECVMAP_WORDS         (sizeof(canRecvMap) / sizeof(uint32_t))
+#define SENDMAP_WORDS         (sizeof(canSendMap) / (sizeof(uint32_t)))
+#define RECVMAP_WORDS         (sizeof(canRecvMap) / (sizeof(uint32_t)))
 #define CANID_UNSET           0xffff
 #define NUMBITS_LASTMARKER    -1
 #define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->canId < CANID_UNSET; c++)
@@ -72,6 +72,7 @@ struct CANSPEED
 };
 
 Can* Can::interfaces[MAX_INTERFACES];
+volatile bool Can::isSaving = false;
 
 static void DummyCallback(uint32_t i, uint32_t* d) { i=i; d=d; }
 static const CANSPEED canSpeed[Can::BaudLast] =
@@ -197,6 +198,8 @@ void Can::Save()
    uint32_t baseAddress = GetFlashAddress();
    uint32_t *checkAddress = (uint32_t*)baseAddress;
 
+   isSaving = true;
+
    for (int i = 0; i < CAN_BLKSIZE / 4; i++, checkAddress++)
       check &= *checkAddress;
 
@@ -218,6 +221,8 @@ void Can::Save()
 
    ReplaceParamUidByEnum(canSendMap);
    ReplaceParamUidByEnum(canRecvMap);
+
+   isSaving = false;
 }
 
 /** \brief Send all defined messages
@@ -230,6 +235,8 @@ void Can::SendAll()
 
       forEachPosMap(curPos, curMap)
       {
+         if (isSaving) return; //Only send mapped messages when not currently saving to flash
+
          s32fp val = Param::Get((Param::PARAM_NUM)curPos->mapParam);
 
          if (curPos->gain <= 32 && curPos->gain >= -32)
@@ -449,6 +456,8 @@ void Can::HandleRx(int fifo)
       }
       else
       {
+         if (isSaving) continue; //Only handle mapped messages when not currently saving to flash
+
          CANIDMAP *recvMap = FindById(canRecvMap, id);
 
          if (0 != recvMap)
