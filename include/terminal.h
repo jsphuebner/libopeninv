@@ -45,8 +45,10 @@ private:
    struct HwInfo
    {
       uint32_t usart;
-      uint8_t dmatx;
-      uint8_t dmarx;
+      uint32_t dmaController;
+      uint8_t streamtx;
+      uint8_t streamrx;
+      uint32_t channel;
       uint32_t port;
       uint16_t pin;
       uint32_t port_re;

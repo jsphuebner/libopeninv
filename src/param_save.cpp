@@ -66,7 +66,7 @@ uint32_t parm_save()
 
    parmPage.crc = crc_calculate_block(((uint32_t*)&parmPage), (2 * NUM_PARAMS));
    flash_unlock();
-   flash_erase_page(PARAM_ADDRESS);
+   //flash_erase_page(PARAM_ADDRESS);
 
    for (idx = 0; idx < PARAM_WORDS; idx++)
    {

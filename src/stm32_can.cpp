@@ -44,8 +44,8 @@
 #define SENDMAP_ADDRESS       CANMAP_ADDRESS
 #define RECVMAP_ADDRESS       (CANMAP_ADDRESS + sizeof(canSendMap))
 #define CRC_ADDRESS           (CANMAP_ADDRESS + sizeof(canSendMap) + sizeof(canRecvMap))
-#define SENDMAP_WORDS         (sizeof(canSendMap) / sizeof(uint32_t))
-#define RECVMAP_WORDS         (sizeof(canRecvMap) / sizeof(uint32_t))
+#define SENDMAP_WORDS         (sizeof(canSendMap) / (sizeof(uint32_t)))
+#define RECVMAP_WORDS         (sizeof(canRecvMap) / (sizeof(uint32_t)))
 #define CANID_UNSET           0xffff
 #define NUMBITS_LASTMARKER    -1
 #define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->canId < CANID_UNSET; c++)
@@ -196,7 +196,7 @@ void Can::Save()
 
    flash_unlock();
    flash_set_ws(2);
-   flash_erase_page(CANMAP_ADDRESS);
+   //flash_erase_page(CANMAP_ADDRESS);
 
    ReplaceParamEnumByUid(canSendMap);
    ReplaceParamEnumByUid(canRecvMap);
@@ -287,25 +287,23 @@ Can::Can(uint32_t baseAddr, enum baudrates baudrate)
    {
       case CAN1:
          // Configure CAN pin: RX (input pull-up).
-         gpio_set_mode(GPIO_BANK_CAN1_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN1_RX);
-         gpio_set(GPIO_BANK_CAN1_RX, GPIO_CAN1_RX);
+         gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO11);
          // Configure CAN pin: TX.-
-         gpio_set_mode(GPIO_BANK_CAN1_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN1_TX);
+         gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
          //CAN1 RX and TX IRQs
-         nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ); //CAN RX
-         nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, 0xf << 4); //lowest priority
-         nvic_enable_irq(NVIC_CAN_RX1_IRQ); //CAN RX
-         nvic_set_priority(NVIC_CAN_RX1_IRQ, 0xf << 4); //lowest priority
-         nvic_enable_irq(NVIC_USB_HP_CAN_TX_IRQ); //CAN TX
-         nvic_set_priority(NVIC_USB_HP_CAN_TX_IRQ, 0xf << 4); //lowest priority
+         nvic_enable_irq(NVIC_CAN1_RX0_IRQ); //CAN RX
+         nvic_set_priority(NVIC_CAN1_RX0_IRQ, 0xf << 4); //lowest priority
+         nvic_enable_irq(NVIC_CAN1_RX1_IRQ); //CAN RX
+         nvic_set_priority(NVIC_CAN1_RX1_IRQ, 0xf << 4); //lowest priority
+         nvic_enable_irq(NVIC_CAN1_TX_IRQ); //CAN TX
+         nvic_set_priority(NVIC_CAN1_TX_IRQ, 0xf << 4); //lowest priority
          interfaces[0] = this;
          break;
       case CAN2:
          // Configure CAN pin: RX (input pull-up).
-         gpio_set_mode(GPIO_BANK_CAN2_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN2_RX);
-         gpio_set(GPIO_BANK_CAN2_RX, GPIO_CAN2_RX);
+         gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO12);
          // Configure CAN pin: TX.-
-         gpio_set_mode(GPIO_BANK_CAN2_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN2_TX);
+         gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO13);
 
          //CAN2 RX and TX IRQs
          nvic_enable_irq(NVIC_CAN2_RX0_IRQ); //CAN RX
@@ -462,7 +460,7 @@ void Can::HandleRx(int fifo)
                else
                   Param::SetFlt((Param::PARAM_NUM)curPos->mapParam, val);
             }
-            lastRxTimestamp = rtc_get_counter_val();
+            //lastRxTimestamp = rtc_get_counter_val();
          }
          else //Now it must be a user message, as filters block everything else
          {
