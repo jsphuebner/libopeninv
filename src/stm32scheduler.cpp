@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "stm32scheduler.h"
+#include <libopencm3/stm32/rcc.h>
 
 /* return CCRc of TIMt */
 #define TIM_CCR(t,c) (*(volatile uint32_t *)(&TIM_CCR1(t) + (c)))
@@ -29,8 +30,8 @@ Stm32Scheduler::Stm32Scheduler(uint32_t timer)
    /* Setup timers upcounting and auto preload enable */
    timer_enable_preload(timer);
    timer_direction_up(timer);
-   /* Set prescaler to count at 100 kHz = 72 MHz/7200 - 1 */
-   timer_set_prescaler(timer, 719);
+   /* Set prescaler to count at 100 kHz */
+   timer_set_prescaler(timer, (rcc_apb2_frequency / 100000) - 1);
    /* Maximum counter value */
    timer_set_period(timer, 0xFFFF);
 
@@ -44,11 +45,12 @@ void Stm32Scheduler::AddTask(void (*function)(void), uint16_t period)
    timer_disable_counter(timer);
 
    timer_set_oc_mode(timer, ocMap[nextTask], TIM_OCM_ACTIVE);
-   timer_set_oc_value(timer, ocMap[nextTask], 0);
 
    /* Assign task function and period */
    functions[nextTask] = function;
    periods  [nextTask] = period * 100;
+
+   timer_set_oc_value(timer, ocMap[nextTask], periods[nextTask]);
 
    /* Enable interrupt for that channel */
    timer_enable_irq(timer, TIM_DIER_CC1IE << nextTask);
