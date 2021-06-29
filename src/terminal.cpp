@@ -35,7 +35,7 @@ const Terminal::HwInfo Terminal::hwInfo[] =
 {
    { USART1, DMA2, DMA_STREAM5, DMA_STREAM2, DMA_SxCR_CHSEL_4, GPIOA, GPIO9, GPIOB, GPIO6 },
    { USART2, DMA1, DMA_STREAM6, DMA_STREAM5, DMA_SxCR_CHSEL_4, GPIOA, GPIO2, GPIOD, GPIO5 },
-   { USART3, DMA1, DMA_STREAM3, DMA_STREAM1, DMA_SxCR_CHSEL_4, GPIOB, GPIO10, GPIOC, GPIO10 },
+   { USART3, DMA1, DMA_STREAM3, DMA_STREAM1, DMA_SxCR_CHSEL_4, GPIOB, GPIO10 | GPIO11, GPIOC, GPIO10 | GPIO11 },
 };
 
 Terminal* Terminal::defaultTerminal;
@@ -63,8 +63,10 @@ Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap)
 
    defaultTerminal = this;
 
-   gpio_mode_setup(remap ? hw->port_re : hw->port, GPIO_MODE_OUTPUT,
+   gpio_mode_setup(remap ? hw->port_re : hw->port, GPIO_MODE_AF,
                GPIO_PUPD_NONE, remap ? hw->pin_re : hw->pin);
+
+   gpio_set_af(remap ? hw->port_re : hw->port, GPIO_AF7, remap ? hw->pin_re : hw->pin);
 
    usart_set_baudrate(usart, USART_BAUDRATE);
    usart_set_databits(usart, 8);
@@ -84,15 +86,15 @@ Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap)
    dma_channel_select(hw->dmaController, hw->streamtx, hw->channel);
 
    dma_stream_reset(hw->dmaController, hw->streamrx);
-   dma_set_transfer_mode(hw->dmaController, hw->streamtx, DMA_SxCR_DIR_PERIPHERAL_TO_MEM);
+   dma_set_transfer_mode(hw->dmaController, hw->streamrx, DMA_SxCR_DIR_PERIPHERAL_TO_MEM);
    dma_set_peripheral_address(hw->dmaController, hw->streamrx, (uint32_t)&USART_DR(usart));
    dma_set_peripheral_size(hw->dmaController, hw->streamrx, DMA_SxCR_PSIZE_8BIT);
    dma_set_memory_size(hw->dmaController, hw->streamrx, DMA_SxCR_MSIZE_8BIT);
    dma_enable_memory_increment_mode(hw->dmaController, hw->streamrx);
    dma_channel_select(hw->dmaController, hw->streamrx, hw->channel);
+   dma_set_memory_address(hw->dmaController, hw->streamrx, (uint32_t)inBuf);
+   dma_set_number_of_data(hw->dmaController, hw->streamrx, bufSize);
    dma_enable_stream(hw->dmaController, hw->streamrx);
-
-   ResetDMA();
 
    usart_enable(usart);
 }
@@ -237,10 +239,10 @@ void Terminal::DisableTxDMA()
 
 void Terminal::ResetDMA()
 {
-   dma_disable_stream(hw->dmaController, hw->streamtx);
-   dma_set_memory_address(hw->dmaController, hw->streamtx, (uint32_t)inBuf);
-   dma_set_number_of_data(hw->dmaController, hw->streamtx, bufSize);
-   dma_enable_stream(hw->dmaController, hw->streamtx);
+   dma_disable_stream(hw->dmaController, hw->streamrx);
+   dma_set_number_of_data(hw->dmaController, hw->streamrx, bufSize);
+   dma_clear_interrupt_flags(hw->dmaController, hw->streamrx, DMA_TCIF);
+   dma_enable_stream(hw->dmaController, hw->streamrx);
 }
 
 void Terminal::EnableUart(char* arg)
