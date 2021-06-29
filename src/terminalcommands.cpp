@@ -385,10 +385,10 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
 void TerminalCommands::SaveParameters(Terminal* term, char *arg)
 {
    arg = arg;
-   uint32_t crc = parm_save();
-   fprintf(term, "Parameters stored, CRC=%x\r\n", crc);
    Can::GetInterface(0)->Save();
    fprintf(term, "CANMAP stored\r\n");
+   uint32_t crc = parm_save();
+   fprintf(term, "Parameters stored, CRC=%x\r\n", crc);
 }
 
 void TerminalCommands::LoadParameters(Terminal* term, char *arg)

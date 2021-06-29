@@ -51,7 +51,6 @@ class Stm32Scheduler
 
    protected:
    private:
-      static void nofunc(void);
       static const enum tim_oc_id ocMap[MAX_TASKS];
       void (*functions[MAX_TASKS]) (void);
       uint16_t periods[MAX_TASKS];

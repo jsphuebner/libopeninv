@@ -34,12 +34,6 @@ Stm32Scheduler::Stm32Scheduler(uint32_t timer)
    /* Maximum counter value */
    timer_set_period(timer, 0xFFFF);
 
-   for (int i = 0; i < MAX_TASKS; i++)
-   {
-      functions[i] = nofunc;
-      periods[i] = 0xFFFF;
-   }
-
    nextTask = 0;
 }
 
@@ -70,30 +64,27 @@ void Stm32Scheduler::AddTask(void (*function)(void), uint16_t period)
 
 void Stm32Scheduler::Run()
 {
-   for (int i = 0; i < MAX_TASKS; i++)
+   for (int i = 0; i < nextTask; i++)
    {
       if (timer_get_flag(timer, TIM_SR_CC1IF << i))
       {
          uint16_t start = timer_get_counter(timer);
-         timer_clear_flag(timer, TIM_SR_CC1IF << i);
+
          TIM_CCR(timer, i) += periods[i];
          functions[i]();
          execTicks[i] = timer_get_counter(timer) - start;
       }
    }
+   timer_clear_flag(timer, TIM_SR_CC1IF | TIM_SR_CC2IF | TIM_SR_CC3IF | TIM_SR_CC4IF);
 }
 
 int Stm32Scheduler::GetCpuLoad()
 {
    int totalLoad = 0;
-   for (int i = 0; i < MAX_TASKS; i++)
+   for (int i = 0; i < nextTask; i++)
    {
       int load = (10 * execTicks[i]) / periods[i];
       totalLoad += load;
    }
    return totalLoad;
-}
-
-void Stm32Scheduler::nofunc()
-{
 }

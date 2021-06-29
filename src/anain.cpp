@@ -80,6 +80,7 @@ void AnaIn::Configure(uint32_t port, uint8_t pin)
 *  - NUM_SAMPLES = 3: Median of last 3 values is returned
 *  - NUM_SAMPLES = 9: Median of last 3 medians is returned
 *  - NUM_SAMPLES = 12: Average of last 4 medians is returned
+*  - NUM_SAMPLES <= 16: Average is returned
 *
 * @return Filtered value
 */
@@ -109,8 +110,18 @@ uint16_t AnaIn::Get()
    }
 
    return (med[0] + med[1] + med[2] + med[3]) >> 2;
+   #elif NUM_SAMPLES <= 16
+   uint16_t *curVal = firstValue;
+   uint16_t avg = 0;
+
+   for (int i = 0; i < NUM_SAMPLES; i++, curVal += ANA_IN_COUNT)
+   {
+      avg += *curVal;
+   }
+
+   return avg / NUM_SAMPLES;
    #else
-   #error NUM_SAMPLES must be 1, 3, 9 or 12
+   #error NUM_SAMPLES must be <= 16
    #endif
 }
 
@@ -152,5 +163,6 @@ uint8_t AnaIn::AdcChFromPort(uint32_t command_port, int command_bit)
         if (command_bit<6) return command_bit+10;
         break;
     }
+    adc_enable_temperature_sensor();
     return 16;
 }
