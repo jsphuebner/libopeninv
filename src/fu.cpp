@@ -32,9 +32,9 @@ void MotorVoltage::SetBoost(uint32_t boost /**< amplitude in digit */)
 }
 
 /** Set frequency where the full amplitude is to be provided */
-void MotorVoltage::SetWeakeningFrq(u32fp frq)
+void MotorVoltage::SetWeakeningFrq(float frq)
 {
-   endFrq = frq;
+   endFrq = FP_FROMFLT(frq);
    CalcFac();
 }
 
