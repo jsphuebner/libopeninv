@@ -30,15 +30,31 @@
 class CANIDMAP;
 class SENDBUFFER;
 
+#ifndef MAX_ITEMS_PER_MESSAGE
+#define MAX_ITEMS_PER_MESSAGE 8
+#endif // MAX_ITEMS_PER_MESSAGE
+
+#ifndef MAX_MESSAGES
+#define MAX_MESSAGES 10
+#endif // MAX_MESSAGES
+
+#ifndef SENDBUFFER_LEN
+#define SENDBUFFER_LEN 20
+#endif // SENDBUFFER_LEN
+
+#ifndef MAX_USER_MESSAGES
+#define MAX_USER_MESSAGES 10
+#endif // MAX_USER_MESSAGES
+
 class Can
 {
 public:
    enum baudrates
    {
-      Baud250, Baud500, Baud800, Baud1000, BaudLast
+      Baud125, Baud250, Baud500, Baud1000, BaudLast
    };
 
-   Can(uint32_t baseAddr, enum baudrates baudrate);
+   Can(uint32_t baseAddr, enum baudrates baudrate, bool remap=false);
    void Clear(void);
    void SetBaudrate(enum baudrates baudrate);
    void Send(uint32_t canId, uint32_t data[2]) { Send(canId, data, 8); }
@@ -49,8 +65,10 @@ public:
    void SetReceiveCallback(void (*recv)(uint32_t, uint32_t*));
    bool RegisterUserMessage(int canId);
    uint32_t GetLastRxTimestamp();
-   int AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain);
-   int AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain);
+   int AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain);
+   int AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain);
+   int AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset);
+   int AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset);
    int Remove(Param::PARAM_NUM param);
    bool FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, s32fp& gain, bool& rx);
    void IterateCanMap(void (*callback)(Param::PARAM_NUM, int, int, int, s32fp, bool));
@@ -60,16 +78,13 @@ public:
    static Can* GetInterface(int index);
 
 private:
-   static const int MAX_ITEMS_PER_MESSAGE = 8;
-   static const int MAX_MESSAGES = 10;
-   static const int SENDBUFFER_LEN = 20;
-   static const int MAX_USER_MESSAGES = 10;
    static volatile bool isSaving;
 
    struct CANPOS
    {
       uint16_t mapParam;
       s16fp gain;
+      int16_t offset;
       uint8_t offsetBits;
       int8_t numBits;
    };
@@ -101,7 +116,7 @@ private:
    void ProcessSDO(uint32_t data[2]);
    void ClearMap(CANIDMAP *canMap);
    int RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param);
-   int Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain);
+   int Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset);
    uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
    int LoadFromFlash();
    CANIDMAP *FindById(CANIDMAP *canMap, int canId);

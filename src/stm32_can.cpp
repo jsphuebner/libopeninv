@@ -52,7 +52,7 @@
 #define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->canId < CANID_UNSET; c++)
 #define forEachPosMap(c,m) for (CANPOS *c = m->items; (c - m->items) < MAX_ITEMS_PER_MESSAGE && c->numBits > 0; c++)
 
-#if (2 *((MAX_ITEMS_PER_MESSAGE * 6 + 2) * MAX_MESSAGES + 2) + 4) > CAN_BLKSIZE
+#if (2 *((MAX_ITEMS_PER_MESSAGE * 8 + 2) * MAX_MESSAGES + 2) + 4) > CAN_BLKSIZE
 #error CANMAP will not fit in one flash page
 #endif
 
@@ -77,9 +77,9 @@ volatile bool Can::isSaving = false;
 static void DummyCallback(uint32_t i, uint32_t* d) { i=i; d=d; }
 static const CANSPEED canSpeed[Can::BaudLast] =
 {
+   { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 21 }, //125kbps
    { CAN_BTR_TS1_11TQ, CAN_BTR_TS2_2TQ, 12 }, //250kbps
    { CAN_BTR_TS1_11TQ, CAN_BTR_TS2_2TQ, 6 }, //500kbps
-   { CAN_BTR_TS1_5TQ, CAN_BTR_TS2_3TQ, 5 }, //800kbps
    { CAN_BTR_TS1_11TQ, CAN_BTR_TS2_2TQ, 3 }, //1000kbps
 };
 
@@ -98,9 +98,14 @@ static const CANSPEED canSpeed[Can::BaudLast] =
  * - CAN_ERR_MAXMESSAGES Already 10 send messages defined
  * - CAN_ERR_MAXITEMS Already 8 items in message
  */
-int Can::AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain)
+int Can::AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset)
 {
-   return Add(canSendMap, param, canId, offset, length, gain);
+   return Add(canSendMap, param, canId, offsetBits, length, gain, offset);
+}
+
+int Can::AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain)
+{
+   return Add(canSendMap, param, canId, offsetBits, length, gain, 0);
 }
 
 /** \brief Map data from CAN bus to parameter
@@ -118,11 +123,16 @@ int Can::AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s16f
  * - CAN_ERR_MAXMESSAGES Already 10 receive messages defined
  * - CAN_ERR_MAXITEMS Already 8 items in message
  */
-int Can::AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain)
+int Can::AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset)
 {
-   int res = Add(canRecvMap, param, canId, offset, length, gain);
+   int res = Add(canRecvMap, param, canId, offsetBits, length, gain, offset);
    ConfigureFilters();
    return res;
+}
+
+int Can::AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain)
+{
+   return Can::AddRecv(param, canId, offsetBits, length, gain, 0);
 }
 
 /** \brief Set function to be called for user handled CAN messages
@@ -227,12 +237,15 @@ void Can::SendAll()
          if (isSaving) return; //Only send mapped messages when not currently saving to flash
 
          s32fp val = Param::Get((Param::PARAM_NUM)curPos->mapParam);
-
+         val = FP_MUL(val, curPos->gain);
+#ifdef CAN_ALLOW_DIVISION
          if (curPos->gain <= 32 && curPos->gain >= -32)
             val = FP_MUL(val, curPos->gain);
          else
             val /= curPos->gain;
+#endif
 
+         val += curPos->offset;
          val &= ((1 << curPos->numBits) - 1);
 
          if (curPos->offsetBits > 31)
@@ -275,15 +288,16 @@ int Can::Remove(Param::PARAM_NUM param)
 /** \brief Init can hardware with given baud rate
  * Initializes the following sub systems:
  * - CAN hardware itself
- * - Appropriate GPIO pins (non-remapped)
+ * - Appropriate GPIO pins
  * - Enables appropriate interrupts in NVIC
  *
  * \param baseAddr base address of CAN peripheral, CAN1 or CAN2
  * \param baudrate enum baudrates
+ * \param remap use remapped IO pins
  * \return void
  *
  */
-Can::Can(uint32_t baseAddr, enum baudrates baudrate)
+Can::Can(uint32_t baseAddr, enum baudrates baudrate, bool remap)
    : lastRxTimestamp(0), sendCnt(0), recvCallback(DummyCallback), nextUserMessageIndex(0), canDev(baseAddr)
 {
    Clear();
@@ -295,6 +309,7 @@ Can::Can(uint32_t baseAddr, enum baudrates baudrate)
          // Configure CAN pins
          gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO8 | GPIO9);
          gpio_set_af(GPIOB, GPIO_AF9, GPIO8 | GPIO9);
+
          //CAN1 RX and TX IRQs
          nvic_enable_irq(NVIC_CAN1_RX0_IRQ); //CAN RX
          nvic_set_priority(NVIC_CAN1_RX0_IRQ, 0xf << 4); //lowest priority
@@ -459,7 +474,12 @@ void Can::HandleRx(int fifo)
                {
                   val = FP_FROMINT((data[0] >> curPos->offsetBits) & ((1 << curPos->numBits) - 1));
                }
-               val = FP_MUL(val, curPos->gain);
+               val+= curPos->offset;
+
+               if (curPos->gain <= 32 && curPos->gain >= -32)
+                  val = FP_MUL(val, curPos->gain);
+               else
+                  val /= curPos->gain;
 
                if (Param::IsParam((Param::PARAM_NUM)curPos->mapParam))
                   Param::Set((Param::PARAM_NUM)curPos->mapParam, val);
@@ -652,10 +672,10 @@ int Can::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
    return removed;
 }
 
-int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain)
+int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset)
 {
    if (canId > 0x7ff) return CAN_ERR_INVALID_ID;
-   if (offset > 63) return CAN_ERR_INVALID_OFS;
+   if (offsetBits > 63) return CAN_ERR_INVALID_OFS;
    if (length > 32) return CAN_ERR_INVALID_LEN;
 
    CANIDMAP *existingMap = FindById(canMap, canId);
@@ -678,7 +698,8 @@ int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offset, in
 
    freeItem->mapParam = param;
    freeItem->gain = gain;
-   freeItem->offsetBits = offset;
+   freeItem->offset = offset;
+   freeItem->offsetBits = offsetBits;
    freeItem->numBits = length;
 
    int count = 0;
