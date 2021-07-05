@@ -63,10 +63,11 @@ namespace Param
    int Set(PARAM_NUM ParamNum, s32fp ParamVal);
    s32fp  Get(PARAM_NUM ParamNum);
    int    GetInt(PARAM_NUM ParamNum);
-   s32fp  GetScl(PARAM_NUM ParamNum);
+   float  GetFloat(PARAM_NUM ParamNum);
    bool   GetBool(PARAM_NUM ParamNum);
-   void SetInt(PARAM_NUM ParamNum, int ParamVal);
-   void SetFlt(PARAM_NUM ParamNum, s32fp ParamVal);
+   void   SetInt(PARAM_NUM ParamNum, int ParamVal);
+   void   SetFixed(PARAM_NUM ParamNum, s32fp ParamVal);
+   void   SetFloat(PARAM_NUM ParamNum, float ParamVal);
    PARAM_NUM NumFromString(const char *name);
    PARAM_NUM NumFromId(uint32_t id);
    const Attributes *GetAttrib(PARAM_NUM ParamNum);

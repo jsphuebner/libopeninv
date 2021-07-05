@@ -26,7 +26,7 @@ class MotorVoltage
 {
 public:
    static void SetBoost(uint32_t boost);
-   static void SetWeakeningFrq(u32fp frq);
+   static void SetWeakeningFrq(float frq);
    static void SetMaxAmp(uint32_t maxAmp);
    static uint32_t GetAmp(u32fp frq);
    static uint32_t GetAmpPerc(u32fp frq, u32fp perc);

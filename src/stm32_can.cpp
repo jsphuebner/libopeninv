@@ -464,7 +464,7 @@ void Can::HandleRx(int fifo)
                if (Param::IsParam((Param::PARAM_NUM)curPos->mapParam))
                   Param::Set((Param::PARAM_NUM)curPos->mapParam, val);
                else
-                  Param::SetFlt((Param::PARAM_NUM)curPos->mapParam, val);
+                  Param::SetFixed((Param::PARAM_NUM)curPos->mapParam, val);
             }
             //lastRxTimestamp = rtc_get_counter_val();
          }
