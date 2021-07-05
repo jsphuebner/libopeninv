@@ -40,16 +40,12 @@ ANA_IN_LIST
 */
 void AnaIn::Start()
 {
-   adc_power_off(ADC1);
+   adc_power_on(ADC1);
    adc_enable_scan_mode(ADC1);
    adc_set_continuous_conversion_mode(ADC1);
+   adc_set_dma_continue(ADC1);
    adc_set_right_aligned(ADC1);
    adc_set_sample_time_on_all_channels(ADC1, SAMPLE_TIME);
-
-   adc_power_on(ADC1);
-   /* wait for adc starting up*/
-   for (volatile int i = 0; i < 80000; i++);
-
    adc_set_regular_sequence(ADC1, ANA_IN_COUNT, channel_array);
    adc_enable_dma(ADC1);
 

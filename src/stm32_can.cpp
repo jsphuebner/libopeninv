@@ -77,10 +77,10 @@ volatile bool Can::isSaving = false;
 static void DummyCallback(uint32_t i, uint32_t* d) { i=i; d=d; }
 static const CANSPEED canSpeed[Can::BaudLast] =
 {
-   { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 9 }, //250kbps
-   { CAN_BTR_TS1_4TQ, CAN_BTR_TS2_3TQ, 9 }, //500kbps
+   { CAN_BTR_TS1_11TQ, CAN_BTR_TS2_2TQ, 12 }, //250kbps
+   { CAN_BTR_TS1_11TQ, CAN_BTR_TS2_2TQ, 6 }, //500kbps
    { CAN_BTR_TS1_5TQ, CAN_BTR_TS2_3TQ, 5 }, //800kbps
-   { CAN_BTR_TS1_6TQ, CAN_BTR_TS2_5TQ, 3 }, //1000kbps
+   { CAN_BTR_TS1_11TQ, CAN_BTR_TS2_2TQ, 3 }, //1000kbps
 };
 
 /** \brief Add periodic CAN message
@@ -190,27 +190,16 @@ bool Can::FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, 
 }
 
 /** \brief Save CAN mapping to flash
+ *  \pre the flash page/sector needs to be erased prior to calling this function
  */
 void Can::Save()
 {
    uint32_t crc;
-   uint32_t check = 0xFFFFFFFF;
    uint32_t baseAddress = GetFlashAddress();
-   uint32_t *checkAddress = (uint32_t*)baseAddress;
 
    isSaving = true;
 
-   for (int i = 0; i < CAN_BLKSIZE / 4; i++, checkAddress++)
-      check &= *checkAddress;
-
    crc_reset();
-
-   flash_unlock();
-   flash_set_ws(2);
-
-   //TODO: flash handling
-   /*if (check != 0xFFFFFFFF) //Only erase when needed
-      flash_erase_page(baseAddress);*/
 
    ReplaceParamEnumByUid(canSendMap);
    ReplaceParamEnumByUid(canRecvMap);
@@ -218,7 +207,6 @@ void Can::Save()
    SaveToFlash(baseAddress, (uint32_t *)canSendMap, SENDMAP_WORDS);
    crc = SaveToFlash(RECVMAP_ADDRESS(baseAddress), (uint32_t *)canRecvMap, RECVMAP_WORDS);
    SaveToFlash(CRC_ADDRESS(baseAddress), &crc, 1);
-   flash_lock();
 
    ReplaceParamUidByEnum(canSendMap);
    ReplaceParamUidByEnum(canRecvMap);
@@ -304,10 +292,9 @@ Can::Can(uint32_t baseAddr, enum baudrates baudrate)
    switch (baseAddr)
    {
       case CAN1:
-         // Configure CAN pin: RX (input pull-up).
-         gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO11);
-         // Configure CAN pin: TX.-
-         gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
+         // Configure CAN pins
+         gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO8 | GPIO9);
+         gpio_set_af(GPIOB, GPIO_AF9, GPIO8 | GPIO9);
          //CAN1 RX and TX IRQs
          nvic_enable_irq(NVIC_CAN1_RX0_IRQ); //CAN RX
          nvic_set_priority(NVIC_CAN1_RX0_IRQ, 0xf << 4); //lowest priority
@@ -318,10 +305,9 @@ Can::Can(uint32_t baseAddr, enum baudrates baudrate)
          interfaces[0] = this;
          break;
       case CAN2:
-         // Configure CAN pin: RX (input pull-up).
-         gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO12);
-         // Configure CAN pin: TX.-
-         gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO13);
+         // Configure CAN pins
+         gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO12 | GPIO13);
+         gpio_set_af(GPIOB, GPIO_AF9, GPIO12 | GPIO13);
 
          //CAN2 RX and TX IRQs
          nvic_enable_irq(NVIC_CAN2_RX0_IRQ); //CAN RX
@@ -398,7 +384,7 @@ void Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
 
    if (can_transmit(canDev, canId, false, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
    {
-      /* enqueue in send buffer if all TX mailboxes are full */
+      // enqueue in send buffer if all TX mailboxes are full
       sendBuffer[sendCnt].id = canId;
       sendBuffer[sendCnt].len = len;
       sendBuffer[sendCnt].data[0] = data[0];
@@ -799,24 +785,28 @@ void Can::ReplaceParamUidByEnum(CANIDMAP *canMap)
 
 uint32_t Can::GetFlashAddress()
 {
-   uint32_t flashSize = desig_get_flash_size();
-
-   //Always save CAN mapping to second-to-last flash page
-   return 0x08000000 + flashSize * 1024 - CAN_BLKSIZE * CAN_BLKNUM;
+   switch (this->canDev)
+   {
+      case CAN1:
+         return FLASH_CONF_BASE + CAN1_BLKOFFSET;
+      case CAN2:
+         return FLASH_CONF_BASE + CAN2_BLKOFFSET;
+   }
+   return 0;
 }
 
 /* Interrupt service routines */
-extern "C" void usb_lp_can_rx0_isr(void)
+extern "C" void can1_rx0_isr(void)
 {
    Can::GetInterface(0)->HandleRx(0);
 }
 
-extern "C" void can_rx1_isr()
+extern "C" void can1_rx1_isr()
 {
    Can::GetInterface(0)->HandleRx(1);
 }
 
-extern "C" void usb_hp_can_tx_isr()
+extern "C" void can1_tx_isr()
 {
    Can::GetInterface(0)->HandleTx();
 }

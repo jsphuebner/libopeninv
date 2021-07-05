@@ -45,15 +45,12 @@ typedef struct
 
 static uint32_t GetFlashAddress()
 {
-   uint32_t flashSize = desig_get_flash_size();
-
-   //Always save parameters to last flash page
-   return 0x08000000 + flashSize * 1024 - PARAM_BLKNUM * PARAM_BLKSIZE;
+   return FLASH_CONF_BASE + PARAM_BLKOFFSET;
 }
 
 /**
 * Save parameters to flash
-*
+* @pre the flash page/sector needs to be erased prior to calling this function
 * @return CRC of parameter flash page
 */
 uint32_t parm_save()
@@ -61,11 +58,6 @@ uint32_t parm_save()
    PARAM_PAGE parmPage;
    uint32_t idx;
    uint32_t paramAddress = GetFlashAddress();
-   uint32_t check = 0xFFFFFFFF;
-   uint32_t* baseAddress = (uint32_t*)paramAddress;
-
-   for (int i = 0; i < PARAM_WORDS; i++, baseAddress++)
-      check &= *baseAddress;
 
    crc_reset();
    memset32((int*)&parmPage, 0xFFFFFFFF, PARAM_WORDS);
@@ -80,18 +72,13 @@ uint32_t parm_save()
    }
 
    parmPage.crc = crc_calculate_block(((uint32_t*)&parmPage), (2 * NUM_PARAMS));
-   flash_unlock();
-
-   /* TODO: flash handling
-   if (check != 0xFFFFFFFF)
-      flash_erase_page(paramAddress);*/
 
    for (idx = 0; idx < PARAM_WORDS; idx++)
    {
       uint32_t* pData = ((uint32_t*)&parmPage) + idx;
       flash_program_word(paramAddress + idx * sizeof(uint32_t), *pData);
    }
-   flash_lock();
+
    return parmPage.crc;
 }
 

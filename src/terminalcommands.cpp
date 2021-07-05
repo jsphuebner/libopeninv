@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <libopencm3/cm3/scb.h>
+#include <libopencm3/stm32/flash.h>
 #include "hwdefs.h"
 #include "terminal.h"
 #include "params.h"
@@ -385,10 +386,14 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
 void TerminalCommands::SaveParameters(Terminal* term, char *arg)
 {
    arg = arg;
+   //We use the second 16k sector for saving configuration data
+   flash_unlock();
+   flash_erase_sector(1, 2);
    Can::GetInterface(0)->Save();
    fprintf(term, "CANMAP stored\r\n");
    uint32_t crc = parm_save();
    fprintf(term, "Parameters stored, CRC=%x\r\n", crc);
+   flash_lock();
 }
 
 void TerminalCommands::LoadParameters(Terminal* term, char *arg)
