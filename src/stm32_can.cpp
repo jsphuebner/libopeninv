@@ -92,7 +92,7 @@ static const CANSPEED canSpeed[Can::BaudLast] =
  * \param gain Fixed point gain to be multiplied before sending
  * \return success: number of active messages
  * Fault:
- * - CAN_ERR_INVALID_ID ID was > 0x7ff
+ * - CAN_ERR_INVALID_ID ID was > 0x1fffffff
  * - CAN_ERR_INVALID_OFS Offset > 63
  * - CAN_ERR_INVALID_LEN Length > 32
  * - CAN_ERR_MAXMESSAGES Already 10 send messages defined
@@ -117,7 +117,7 @@ int Can::AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, 
  * \param gain Fixed point gain to be multiplied after receiving
  * \return success: number of active messages
  * Fault:
- * - CAN_ERR_INVALID_ID ID was > 0x7ff
+ * - CAN_ERR_INVALID_ID ID was > 0x1fffffff
  * - CAN_ERR_INVALID_OFS Offset > 63
  * - CAN_ERR_INVALID_LEN Length > 32
  * - CAN_ERR_MAXMESSAGES Already 10 receive messages defined
@@ -397,7 +397,7 @@ void Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
 {
    can_disable_irq(canDev, CAN_IER_TMEIE);
 
-   if (can_transmit(canDev, canId, false, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
+   if (can_transmit(canDev, canId, canId > 0x7FF, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
    {
       // enqueue in send buffer if all TX mailboxes are full
       sendBuffer[sendCnt].id = canId;
@@ -498,7 +498,9 @@ void Can::HandleRx(int fifo)
 
 void Can::HandleTx()
 {
-   while (sendCnt > 0 && can_transmit(canDev, sendBuffer[sendCnt - 1].id, false, false, sendBuffer[sendCnt - 1].len, (uint8_t*)sendBuffer[sendCnt - 1].data) >= 0)
+   SENDBUFFER* b = sendBuffer; //alias
+
+   while (sendCnt > 0 && can_transmit(canDev, b[sendCnt - 1].id, b[sendCnt - 1].id > 0x7FF, false, b[sendCnt - 1].len, (uint8_t*)b[sendCnt - 1].data) >= 0)
       sendCnt--;
 
    if (sendCnt == 0)
@@ -674,8 +676,8 @@ int Can::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
 
 int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset)
 {
-   if (canId > 0x7ff) return CAN_ERR_INVALID_ID;
-   if (offsetBits > 63) return CAN_ERR_INVALID_OFS;
+   if (canId > 0x1fffffff) return CAN_ERR_INVALID_ID;
+   if (offset > 63) return CAN_ERR_INVALID_OFS;
    if (length > 32) return CAN_ERR_INVALID_LEN;
 
    CANIDMAP *existingMap = FindById(canMap, canId);
@@ -723,7 +725,7 @@ void Can::ClearMap(CANIDMAP *canMap)
    }
 }
 
-Can::CANIDMAP* Can::FindById(CANIDMAP *canMap, int canId)
+Can::CANIDMAP* Can::FindById(CANIDMAP *canMap, uint32_t canId)
 {
    for (int i = 0; i < MAX_MESSAGES; i++)
    {

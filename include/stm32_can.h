@@ -91,13 +91,13 @@ private:
 
    struct CANIDMAP
    {
-      uint16_t canId;
+      uint32_t canId;
       CANPOS items[MAX_ITEMS_PER_MESSAGE];
    };
 
    struct SENDBUFFER
    {
-      uint16_t id;
+      uint32_t id;
       uint32_t len;
       uint32_t data[2];
    };
@@ -119,7 +119,7 @@ private:
    int Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset);
    uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
    int LoadFromFlash();
-   CANIDMAP *FindById(CANIDMAP *canMap, int canId);
+   CANIDMAP *FindById(CANIDMAP *canMap, uint32_t canId);
    int CopyIdMapExcept(CANIDMAP *source, CANIDMAP *dest, Param::PARAM_NUM param);
    void ReplaceParamEnumByUid(CANIDMAP *canMap);
    void ReplaceParamUidByEnum(CANIDMAP *canMap);

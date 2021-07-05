@@ -60,7 +60,6 @@ void AnaIn::Start()
    dma_enable_stream(DMA2, ADC_DMA_STREAM);
 
    adc_start_conversion_regular(ADC1);
-   //adc_start_conversion_direct(ADC1);
 }
 
 void AnaIn::Configure(uint32_t port, uint8_t pin)
@@ -72,8 +71,8 @@ void AnaIn::Configure(uint32_t port, uint8_t pin)
 /**
 * Get filtered value of given channel
 *
-*  - NUM_SAMPLES = 1: Most recent raw value is returned
-*  - NUM_SAMPLES = 3: Median of last 3 values is returned
+*  - NUM_SAMPLES = 1: Most recent sample is returned
+*  - NUM_SAMPLES = 3: Median of last 3 samples is returned
 *  - NUM_SAMPLES = 9: Median of last 3 medians is returned
 *  - NUM_SAMPLES = 12: Average of last 4 medians is returned
 *  - NUM_SAMPLES <= 16: Average is returned
