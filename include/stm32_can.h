@@ -31,7 +31,7 @@ class CANIDMAP;
 class SENDBUFFER;
 
 #ifndef MAX_ITEMS_PER_MESSAGE
-#define MAX_ITEMS_PER_MESSAGE 8
+#define MAX_ITEMS_PER_MESSAGE 9
 #endif // MAX_ITEMS_PER_MESSAGE
 
 #ifndef MAX_MESSAGES
@@ -65,13 +65,13 @@ public:
    void SetReceiveCallback(void (*recv)(uint32_t, uint32_t*));
    bool RegisterUserMessage(int canId);
    uint32_t GetLastRxTimestamp();
-   int AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain);
-   int AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain);
-   int AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset);
-   int AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset);
+   int AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, float gain);
+   int AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, float gain);
+   int AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, float gain, int16_t offset);
+   int AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, float gain, int16_t offset);
    int Remove(Param::PARAM_NUM param);
-   bool FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, s32fp& gain, bool& rx);
-   void IterateCanMap(void (*callback)(Param::PARAM_NUM, int, int, int, s32fp, bool));
+   bool FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, float& gain, bool& rx);
+   void IterateCanMap(void (*callback)(Param::PARAM_NUM, int, int, int, float, bool));
    void HandleRx(int fifo);
    void HandleTx();
    void SetNodeId(uint8_t id) { nodeId = id; }
@@ -83,8 +83,8 @@ private:
    struct CANPOS
    {
       uint16_t mapParam;
-      s16fp gain;
       int16_t offset;
+      float gain;
       uint8_t offsetBits;
       int8_t numBits;
    };
@@ -116,7 +116,7 @@ private:
    void ProcessSDO(uint32_t data[2]);
    void ClearMap(CANIDMAP *canMap);
    int RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param);
-   int Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset);
+   int Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offsetBits, int length, float gain, int16_t offset);
    uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
    int LoadFromFlash();
    CANIDMAP *FindById(CANIDMAP *canMap, uint32_t canId);

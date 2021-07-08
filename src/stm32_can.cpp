@@ -47,12 +47,12 @@
 #define CRC_ADDRESS(b)        (b + sizeof(canSendMap) + sizeof(canRecvMap))
 #define SENDMAP_WORDS         (sizeof(canSendMap) / (sizeof(uint32_t)))
 #define RECVMAP_WORDS         (sizeof(canRecvMap) / (sizeof(uint32_t)))
-#define CANID_UNSET           0xffff
+#define CANID_UNSET           0xffffffff
 #define NUMBITS_LASTMARKER    -1
 #define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->canId < CANID_UNSET; c++)
 #define forEachPosMap(c,m) for (CANPOS *c = m->items; (c - m->items) < MAX_ITEMS_PER_MESSAGE && c->numBits > 0; c++)
 
-#if (2 *((MAX_ITEMS_PER_MESSAGE * 8 + 2) * MAX_MESSAGES + 2) + 4) > CAN_BLKSIZE
+#if (2 *((MAX_ITEMS_PER_MESSAGE * 10 + 4) * MAX_MESSAGES + 2) + 4) > CAN_BLKSIZE
 #error CANMAP will not fit in one flash page
 #endif
 
@@ -98,12 +98,12 @@ static const CANSPEED canSpeed[Can::BaudLast] =
  * - CAN_ERR_MAXMESSAGES Already 10 send messages defined
  * - CAN_ERR_MAXITEMS Already 8 items in message
  */
-int Can::AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset)
+int Can::AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, float gain, int16_t offset)
 {
    return Add(canSendMap, param, canId, offsetBits, length, gain, offset);
 }
 
-int Can::AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain)
+int Can::AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, float gain)
 {
    return Add(canSendMap, param, canId, offsetBits, length, gain, 0);
 }
@@ -123,14 +123,14 @@ int Can::AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, 
  * - CAN_ERR_MAXMESSAGES Already 10 receive messages defined
  * - CAN_ERR_MAXITEMS Already 8 items in message
  */
-int Can::AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset)
+int Can::AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, float gain, int16_t offset)
 {
    int res = Add(canRecvMap, param, canId, offsetBits, length, gain, offset);
    ConfigureFilters();
    return res;
 }
 
-int Can::AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain)
+int Can::AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, float gain)
 {
    return Can::AddRecv(param, canId, offsetBits, length, gain, 0);
 }
@@ -172,7 +172,7 @@ bool Can::RegisterUserMessage(int canId)
  * \param[out] rx true: Parameter is received via CAN, false: sent via CAN
  * \return true: parameter is mapped, false: not mapped
  */
-bool Can::FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, s32fp& gain, bool& rx)
+bool Can::FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, float& gain, bool& rx)
 {
    rx = false;
    bool done = false;
@@ -236,16 +236,10 @@ void Can::SendAll()
       {
          if (isSaving) return; //Only send mapped messages when not currently saving to flash
 
-         s32fp val = Param::Get((Param::PARAM_NUM)curPos->mapParam);
-         val = FP_MUL(val, curPos->gain);
-#ifdef CAN_ALLOW_DIVISION
-         if (curPos->gain <= 32 && curPos->gain >= -32)
-            val = FP_MUL(val, curPos->gain);
-         else
-            val /= curPos->gain;
-#endif
-
-         val += curPos->offset;
+         float fval = Param::GetFloat((Param::PARAM_NUM)curPos->mapParam);
+         fval *= curPos->gain;
+         fval += curPos->offset;
+         uint32_t val = fval;
          val &= ((1 << curPos->numBits) - 1);
 
          if (curPos->offsetBits > 31)
@@ -413,7 +407,7 @@ void Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
    }
 }
 
-void Can::IterateCanMap(void (*callback)(Param::PARAM_NUM, int, int, int, s32fp, bool))
+void Can::IterateCanMap(void (*callback)(Param::PARAM_NUM, int, int, int, float, bool))
 {
    bool done = false, rx = false;
 
@@ -475,11 +469,7 @@ void Can::HandleRx(int fifo)
                   val = FP_FROMINT((data[0] >> curPos->offsetBits) & ((1 << curPos->numBits) - 1));
                }
                val+= curPos->offset;
-
-               if (curPos->gain <= 32 && curPos->gain >= -32)
-                  val = FP_MUL(val, curPos->gain);
-               else
-                  val /= curPos->gain;
+               val*= curPos->gain;
 
                if (Param::IsParam((Param::PARAM_NUM)curPos->mapParam))
                   Param::Set((Param::PARAM_NUM)curPos->mapParam, val);
@@ -674,7 +664,7 @@ int Can::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
    return removed;
 }
 
-int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset)
+int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offsetBits, int length, float gain, int16_t offset)
 {
    if (canId > 0x1fffffff) return CAN_ERR_INVALID_ID;
    if (offset > 63) return CAN_ERR_INVALID_OFS;

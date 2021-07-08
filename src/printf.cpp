@@ -129,6 +129,26 @@ static int printi(IPutChar* put, int i, int b, int sg, int width, int pad, int l
 
 	return pc + prints (put, s, width, pad);
 }
+#if 0
+static int printfloat(IPutChar* put, float f, int width, int pad)
+{
+   int i = (int)f;
+
+   f -= i;
+   int pc = printi(put, i, 10, 1, width, pad, 'a'); //Print integral part
+
+   while (width--)
+      f *= 10;
+
+   i = (int)f;
+   if (i != 0)
+   {
+      put->PutChar('.');
+      return 1 + pc + printi(put, i, 10, 1, 0, 0, 'a'); //Print fractional part
+   }
+   return pc;
+}
+#endif
 
 static int printfp(IPutChar* put, int i, int width, int pad)
 {

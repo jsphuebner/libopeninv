@@ -28,7 +28,7 @@ class TerminalCommands
       static void ParamFlag(Terminal* term, char *arg);
       static void ParamStream(Terminal* term, char *arg);
       static void PrintParamsJson(Terminal* term, char *arg);
-      static void MapCan(Terminal* term, char *arg);
+      static void MapCan(Can* can, Terminal* term, char *arg);
       static void SaveParameters(Terminal* term, char *arg);
       static void LoadParameters(Terminal* term, char *arg);
       static void Reset(Terminal* term, char *arg);
@@ -36,7 +36,7 @@ class TerminalCommands
    protected:
 
    private:
-      static void PrintCanMap(Param::PARAM_NUM param, int canid, int offset, int length, s32fp gain, bool rx);
+      static void PrintCanMap(Param::PARAM_NUM param, int canid, int offset, int length, float gain, bool rx);
 };
 
 #endif // TERMINALCOMMANDS_H
