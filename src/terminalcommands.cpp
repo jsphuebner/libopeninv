@@ -387,6 +387,7 @@ void TerminalCommands::SaveParameters(Terminal* term, char *arg)
    flash_unlock();
    flash_erase_sector(1, 2);
    Can::GetInterface(0)->Save();
+   Can::GetInterface(1)->Save();
    fprintf(term, "CANMAP stored\r\n");
    uint32_t crc = parm_save();
    fprintf(term, "Parameters stored, CRC=%x\r\n", crc);
