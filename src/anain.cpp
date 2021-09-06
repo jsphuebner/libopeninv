@@ -65,7 +65,8 @@ void AnaIn::Start()
    dma_enable_circular_mode(DMA1, ADC_DMA_CHAN);
    dma_enable_channel(DMA1, ADC_DMA_CHAN);
 
-   adc_start_conversion_regular(ADC1);
+   //adc_start_conversion_regular(ADC1);
+   //ADC_CR2(ADC1) |= ADC_CR2_JSWSTART;
    adc_start_conversion_direct(ADC1);
 }
 

@@ -223,10 +223,10 @@ void Can::SendAll()
       {
          s32fp val = Param::Get((Param::PARAM_NUM)curPos->mapParam);
 
-         if (curPos->gain <= 32 && curPos->gain >= -32)
+         //if (curPos->gain <= 32 && curPos->gain >= -32)
             val = FP_MUL(val, curPos->gain);
-         else
-            val /= curPos->gain;
+         //else
+           // val /= curPos->gain;
 
          val &= ((1 << curPos->numBits) - 1);
 
