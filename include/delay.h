@@ -1,7 +1,7 @@
 /*
- * This file is part of the libopeninv project.
+ * This file is part of the stm32-sine project.
  *
- * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
+ * Copyright (C) 2021 David J. Fiddes <D.J@fiddes.net>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,19 +16,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef PARAM_SAVE_H_INCLUDED
-#define PARAM_SAVE_H_INCLUDED
+#ifndef DELAY_H
+#define DELAY_H
 
-#ifdef __cplusplus
-extern "C"
+/**
+ * \brief Blocking delay for a period
+ *
+ * \param[in] period Length of the delay in micro-seconds
+ */
+inline void uDelay(int period)
 {
-#endif
+    // Empirically determined constant by measurement of GPIO toggle
+    // of 1000 uS delay on a 72MHz STM32F103 processor
+    static const int CyclesPerMicroSecond = 12;
 
-uint32_t parm_save(void);
-int parm_load(void);
+    int iterations = period * CyclesPerMicroSecond;
 
-#ifdef __cplusplus
+    for (int i = 0; i < iterations; i++)
+    {
+        __asm__("nop");
+    }
 }
-#endif
 
-#endif // PARAM_SAVE_H_INCLUDED
+#endif // DELAY_H

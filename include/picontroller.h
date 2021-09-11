@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2018 Johannes Huebner <dev@johanneshuebner.com>
  *
@@ -59,11 +59,17 @@ class PiController
        */
       void SetCallingFrequency(int val) { frequency = val; }
 
-      /** Run regulator to obtain a new actuator value
+      /** Run controller to obtain a new actuator value
        * \param curVal currently measured value
        * \return new actuator value
        */
       int32_t Run(s32fp curVal);
+
+      /** Run controller to obtain a new actuator value, run only proportional part
+       * \param curVal currently measured value
+       * \return new actuator value
+       */
+      int32_t RunProportionalOnly(s32fp curVal);
 
       /** Reset integrator to 0 */
       void ResetIntegrator() { esum = 0; }

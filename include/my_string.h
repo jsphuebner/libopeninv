@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
  *
@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef MY_STRING_H
+#define MY_STRING_H
 
 #ifndef NULL
 #define NULL 0L
@@ -43,3 +45,4 @@ void my_strcpy(char *str1, const char *str2);
 #ifdef __cplusplus
 }
 #endif
+#endif // MY_STRING_H

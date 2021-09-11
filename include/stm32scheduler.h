@@ -1,7 +1,7 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
- * Copyright (C) 2017 Johannes Huebner <contact@johanneshuebner.com>
+ * Copyright (C) 2017 Johannes Huebner <dev@johanneshuebner.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,7 +51,6 @@ class Stm32Scheduler
 
    protected:
    private:
-      static void nofunc(void);
       static const enum tim_oc_id ocMap[MAX_TASKS];
       void (*functions[MAX_TASKS]) (void);
       uint16_t periods[MAX_TASKS];

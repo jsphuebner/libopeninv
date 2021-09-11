@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2010 Johannes Huebner <contact@johanneshuebner.com>
  * Copyright (C) 2010 Edward Cheeseman <cheesemanedward@gmail.com>
@@ -166,5 +166,6 @@ uint8_t AnaIn::AdcChFromPort(uint32_t command_port, int command_bit)
         if (command_bit<6) return command_bit+10;
         break;
     }
+    adc_enable_temperature_sensor();
     return 16;
 }

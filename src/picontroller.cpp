@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2018 Johannes Huebner <dev@johanneshuebner.com>
  *
@@ -32,7 +32,22 @@ int32_t PiController::Run(s32fp curVal)
    int32_t y = FP_TOINT(err * kp + (esum / frequency) * ki);
    int32_t ylim = MAX(y, minY);
    ylim = MIN(ylim, maxY);
-   esum += ((ylim - y) * frequency) / (ki + 1); //anti windup
+
+   if (ki != 0)
+   {
+      esum += FP_FROMINT(((ylim - y) * frequency) / ki); //anti windup
+   }
+
+   return ylim;
+}
+
+int32_t PiController::RunProportionalOnly(s32fp curVal)
+{
+   s32fp err = refVal - curVal;
+
+   int32_t y = FP_TOINT(err * kp);
+   int32_t ylim = MAX(y, minY);
+   ylim = MIN(ylim, maxY);
 
    return ylim;
 }

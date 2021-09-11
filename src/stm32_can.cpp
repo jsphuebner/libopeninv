@@ -1,5 +1,5 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
  * Copyright (C) 2016 Nail Güzel
  * Johannes Huebner <dev@johanneshuebner.com>
@@ -28,12 +28,14 @@
 #include <libopencm3/stm32/flash.h>
 #include <libopencm3/stm32/crc.h>
 #include <libopencm3/stm32/rtc.h>
+#include <libopencm3/stm32/desig.h>
 #include <libopencm3/cm3/common.h>
 #include <libopencm3/cm3/nvic.h>
 #include "stm32_can.h"
 
 #define MAX_INTERFACES        2
 #define IDS_PER_BANK          4
+#define EXT_IDS_PER_BANK      2
 #define SDO_WRITE             0x40
 #define SDO_READ              0x22
 #define SDO_ABORT             0x80
@@ -41,17 +43,17 @@
 #define SDO_READ_REPLY        0x43
 #define SDO_ERR_INVIDX        0x06020000
 #define SDO_ERR_RANGE         0x06090030
-#define SENDMAP_ADDRESS       CANMAP_ADDRESS
-#define RECVMAP_ADDRESS       (CANMAP_ADDRESS + sizeof(canSendMap))
-#define CRC_ADDRESS           (CANMAP_ADDRESS + sizeof(canSendMap) + sizeof(canRecvMap))
-#define SENDMAP_WORDS         (sizeof(canSendMap) / sizeof(uint32_t))
-#define RECVMAP_WORDS         (sizeof(canRecvMap) / sizeof(uint32_t))
+#define SENDMAP_ADDRESS(b)    b
+#define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
+#define CRC_ADDRESS(b)        (b+ + sizeof(canSendMap) + sizeof(canRecvMap))
+#define SENDMAP_WORDS         (sizeof(canSendMap) / (sizeof(uint32_t)))
+#define RECVMAP_WORDS         (sizeof(canRecvMap) / (sizeof(uint32_t)))
 #define CANID_UNSET           0xffffffff
 #define NUMBITS_LASTMARKER    -1
 #define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->canId < CANID_UNSET; c++)
 #define forEachPosMap(c,m) for (CANPOS *c = m->items; (c - m->items) < MAX_ITEMS_PER_MESSAGE && c->numBits > 0; c++)
 
-#if (2 *((MAX_ITEMS_PER_MESSAGE * 6 + 2) * MAX_MESSAGES + 4) + 4) > FLASH_PAGE_SIZE
+#if (2 *((MAX_ITEMS_PER_MESSAGE * 6 + 2) * MAX_MESSAGES + 4) + 4) > CAN_BLKSIZE
 #error CANMAP will not fit in one flash page
 #endif
 
@@ -71,6 +73,7 @@ struct CANSPEED
 };
 
 Can* Can::interfaces[MAX_INTERFACES];
+volatile bool Can::isSaving = false;
 
 static void DummyCallback(uint32_t i, uint32_t* d) { i=i; d=d; }
 static const CANSPEED canSpeed[Can::BaudLast] =
@@ -193,22 +196,35 @@ bool Can::FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, 
 void Can::Save()
 {
    uint32_t crc;
+   uint32_t check = 0xFFFFFFFF;
+   uint32_t baseAddress = GetFlashAddress();
+   uint32_t *checkAddress = (uint32_t*)baseAddress;
+
+   isSaving = true;
+
+   for (int i = 0; i < CAN_BLKSIZE / 4; i++, checkAddress++)
+      check &= *checkAddress;
+
    crc_reset();
 
    flash_unlock();
    flash_set_ws(2);
-   flash_erase_page(CANMAP_ADDRESS);
+
+   if (check != 0xFFFFFFFF) //Only erase when needed
+      flash_erase_page(baseAddress);
 
    ReplaceParamEnumByUid(canSendMap);
    ReplaceParamEnumByUid(canRecvMap);
 
-   SaveToFlash(SENDMAP_ADDRESS, (uint32_t *)canSendMap, SENDMAP_WORDS);
-   crc = SaveToFlash(RECVMAP_ADDRESS, (uint32_t *)canRecvMap, RECVMAP_WORDS);
-   SaveToFlash(CRC_ADDRESS, &crc, 1);
+   SaveToFlash(baseAddress, (uint32_t *)canSendMap, SENDMAP_WORDS);
+   crc = SaveToFlash(RECVMAP_ADDRESS(baseAddress), (uint32_t *)canRecvMap, RECVMAP_WORDS);
+   SaveToFlash(CRC_ADDRESS(baseAddress), &crc, 1);
    flash_lock();
 
    ReplaceParamUidByEnum(canSendMap);
    ReplaceParamUidByEnum(canRecvMap);
+
+   isSaving = false;
 }
 
 /** \brief Send all defined messages
@@ -221,6 +237,8 @@ void Can::SendAll()
 
       forEachPosMap(curPos, curMap)
       {
+         if (isSaving) return; //Only send mapped messages when not currently saving to flash
+
          s32fp val = Param::Get((Param::PARAM_NUM)curPos->mapParam);
 
          //if (curPos->gain <= 32 && curPos->gain >= -32)
@@ -319,6 +337,7 @@ Can::Can(uint32_t baseAddr, enum baudrates baudrate)
          break;
    }
 
+   nodeId = 1;
 	// Reset CAN
 	can_reset(canDev);
 
@@ -433,12 +452,14 @@ void Can::HandleRx(int fifo)
    while (can_receive(canDev, fifo, true, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, NULL) > 0)
    {
       //printf("fifo: %d, id: %x, len: %d, data[0]: %x, data[1]: %x\r\n", fifo, id, length, data[0], data[1]);
-      if (id == 0x601 && length == 8) //SDO request, nodeid=1
+      if (id == (0x600U + nodeId) && length == 8) //SDO request, nodeid=1
       {
          ProcessSDO(data);
       }
       else
       {
+         if (isSaving) continue; //Only handle mapped messages when not currently saving to flash
+
          CANIDMAP *recvMap = FindById(canRecvMap, id);
 
          if (0 != recvMap)
@@ -485,17 +506,36 @@ void Can::HandleTx()
    }
 }
 
+void Can::SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, uint32_t data)
+{
+   uint32_t d[2];
+   CAN_SDO *sdo = (CAN_SDO*)d;
+
+   sdo->cmd = SDO_WRITE;
+   sdo->index = index;
+   sdo->subIndex = subIndex;
+   sdo->data = data;
+
+   Send(0x600 + remoteNodeId, d);
+}
+
 /****************** Private methods and ISRs ********************/
 
 //http://www.byteme.org.uk/canopenparent/canopen/sdo-service-data-objects-canopen/
 void Can::ProcessSDO(uint32_t data[2])
 {
    CAN_SDO *sdo = (CAN_SDO*)data;
-   if (sdo->index == 0x2000 && sdo->subIndex < Param::PARAM_LAST)
+   if (sdo->index >= 0x2000 && sdo->index <= 0x2001 && sdo->subIndex < Param::PARAM_LAST)
    {
+      Param::PARAM_NUM paramIdx = (Param::PARAM_NUM)sdo->subIndex;
+
+      //SDO index 0x2001 will lookup the parameter by its unique ID
+      if (sdo->index == 0x2001)
+         paramIdx = Param::NumFromId(sdo->subIndex);
+
       if (sdo->cmd == SDO_WRITE)
       {
-         if (Param::Set((Param::PARAM_NUM)sdo->subIndex, sdo->data) == 0)
+         if (Param::Set(paramIdx, sdo->data) == 0)
          {
             sdo->cmd = SDO_WRITE_REPLY;
          }
@@ -507,7 +547,7 @@ void Can::ProcessSDO(uint32_t data[2])
       }
       else if (sdo->cmd == SDO_READ)
       {
-         sdo->data = Param::Get((Param::PARAM_NUM)sdo->subIndex);
+         sdo->data = Param::Get(paramIdx);
          sdo->cmd = SDO_READ_REPLY;
       }
    }
@@ -545,7 +585,7 @@ void Can::ProcessSDO(uint32_t data[2])
       sdo->cmd = SDO_ABORT;
       sdo->data = SDO_ERR_INVIDX;
    }
-   Can::Send(0x581, data);
+   Can::Send(0x580 + nodeId, data);
 }
 
 void Can::SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
@@ -563,31 +603,71 @@ void Can::SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
    idList[0] = idList[1] = idList[2] = idList[3] = 0;
 }
 
+void Can::SetFilterBank29(int& idIndex, int& filterId, uint32_t* idList)
+{
+   can_filter_id_list_32bit_init(
+         filterId,
+         idList[0] << 3, //left align
+         idList[1] << 3,
+         filterId & 1,
+         true);
+   idIndex = 0;
+   filterId++;
+   idList[0] = idList[1] = 0;
+}
+
 void Can::ConfigureFilters()
 {
-   uint16_t idList[IDS_PER_BANK] = { 0x601, 0, 0, 0 };
-   int idIndex = 1;
+   uint16_t idList[IDS_PER_BANK] = { 0, 0, 0, 0 };
+   uint32_t extIdList[EXT_IDS_PER_BANK] = { 0, 0 };
+   int idIndex = 1, extIdIndex = 0;
    int filterId = canDev == CAN1 ? 0 : ((CAN_FMR(CAN2) >> 8) & 0x3F);
+
+   idList[0] = 0x600 + nodeId;
 
    for (int i = 0; i < nextUserMessageIndex; i++)
    {
-      idList[idIndex] = userIds[i];
-      idIndex++;
+      if (userIds[i] > 0x7ff)
+      {
+         extIdList[extIdIndex] = userIds[i];
+         extIdIndex++;
+      }
+      else
+      {
+         idList[idIndex] = userIds[i];
+         idIndex++;
+      }
 
       if (idIndex == IDS_PER_BANK)
       {
          SetFilterBank(idIndex, filterId, idList);
       }
+      if (extIdIndex == EXT_IDS_PER_BANK)
+      {
+         SetFilterBank29(idIndex, filterId, extIdList);
+      }
    }
 
    forEachCanMap(curMap, canRecvMap)
    {
-      idList[idIndex] = curMap->canId;
-      idIndex++;
+      if (curMap->canId > 0x7ff)
+      {
+         extIdList[extIdIndex] = curMap->canId;
+         extIdIndex++;
+      }
+      else
+      {
+         idList[idIndex] = curMap->canId;
+         idIndex++;
+      }
 
       if (idIndex == IDS_PER_BANK)
       {
          SetFilterBank(idIndex, filterId, idList);
+      }
+      if (extIdIndex == EXT_IDS_PER_BANK)
+      {
+         SetFilterBank29(idIndex, filterId, extIdList);
       }
    }
    //loop terminates before adding last set of filters
@@ -595,21 +675,25 @@ void Can::ConfigureFilters()
    {
       SetFilterBank(idIndex, filterId, idList);
    }
+   if (extIdIndex > 0)
+   {
+      SetFilterBank29(extIdIndex, filterId, extIdList);
+   }
 }
 
 int Can::LoadFromFlash()
 {
-   uint32_t* data = (uint32_t *)CANMAP_ADDRESS;
-   uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS;
+   uint32_t data = GetFlashAddress();
+   uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS(data);
    uint32_t crc;
 
    crc_reset();
-   crc = crc_calculate_block(data, SENDMAP_WORDS + RECVMAP_WORDS);
+   crc = crc_calculate_block((uint32_t*)data, SENDMAP_WORDS + RECVMAP_WORDS);
 
    if (storedCrc == crc)
    {
-      memcpy32((int*)canSendMap, (int*)SENDMAP_ADDRESS, SENDMAP_WORDS);
-      memcpy32((int*)canRecvMap, (int*)RECVMAP_ADDRESS, RECVMAP_WORDS);
+      memcpy32((int*)canSendMap, (int*)SENDMAP_ADDRESS(data), SENDMAP_WORDS);
+      memcpy32((int*)canRecvMap, (int*)RECVMAP_ADDRESS(data), RECVMAP_WORDS);
       ReplaceParamUidByEnum(canSendMap);
       ReplaceParamUidByEnum(canRecvMap);
       return 1;
@@ -758,6 +842,14 @@ void Can::ReplaceParamUidByEnum(CANIDMAP *canMap)
          curPos->mapParam = param;
       }
    }
+}
+
+uint32_t Can::GetFlashAddress()
+{
+   uint32_t flashSize = desig_get_flash_size();
+
+   //Always save CAN mapping to second-to-last flash page
+   return FLASH_BASE + flashSize * 1024 - CAN_BLKSIZE * CAN_BLKNUM;
 }
 
 /* Interrupt service routines */
