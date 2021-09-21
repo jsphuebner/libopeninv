@@ -607,8 +607,8 @@ void Can::SetFilterBank29(int& idIndex, int& filterId, uint32_t* idList)
 {
    can_filter_id_list_32bit_init(
          filterId,
-         idList[0] << 3, //left align
-         idList[1] << 3,
+         (idList[0] << 3) | 0x4, //filter extended
+         (idList[1] << 3) | 0x4,
          filterId & 1,
          true);
    idIndex = 0;
@@ -644,7 +644,7 @@ void Can::ConfigureFilters()
       }
       if (extIdIndex == EXT_IDS_PER_BANK)
       {
-         SetFilterBank29(idIndex, filterId, extIdList);
+         SetFilterBank29(extIdIndex, filterId, extIdList);
       }
    }
 
@@ -667,7 +667,7 @@ void Can::ConfigureFilters()
       }
       if (extIdIndex == EXT_IDS_PER_BANK)
       {
-         SetFilterBank29(idIndex, filterId, extIdList);
+         SetFilterBank29(extIdIndex, filterId, extIdList);
       }
    }
    //loop terminates before adding last set of filters
