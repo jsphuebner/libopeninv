@@ -450,7 +450,7 @@ void Can::HandleRx(int fifo)
    while (can_receive(canDev, fifo, true, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, NULL) > 0)
    {
       //printf("fifo: %d, id: %x, len: %d, data[0]: %x, data[1]: %x\r\n", fifo, id, length, data[0], data[1]);
-      if (id == (0x600U + nodeId) && length == 8) //SDO request, nodeid=1
+      if (id == (0x600U + nodeId) && length == 8) //SDO request
       {
          ProcessSDO(data);
       }
@@ -602,10 +602,19 @@ void Can::SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
 void Can::ConfigureFilters()
 {
    uint16_t idList[IDS_PER_BANK] = { 0, 0, 0, 0 };
-   int idIndex = 1;
+   int idIndex = 0;
    int filterId = canDev == CAN1 ? 0 : ((CAN_FMR(CAN2) >> 8) & 0x3F);
 
-   idList[0] = 0x600 + nodeId;
+   forEachCanMap(curMap, canRecvMap)
+   {
+      idList[idIndex] = curMap->canId;
+      idIndex++;
+
+      if (idIndex == IDS_PER_BANK)
+      {
+         SetFilterBank(idIndex, filterId, idList);
+      }
+   }
 
    for (int i = 0; i < nextUserMessageIndex; i++)
    {
@@ -618,21 +627,9 @@ void Can::ConfigureFilters()
       }
    }
 
-   forEachCanMap(curMap, canRecvMap)
-   {
-      idList[idIndex] = curMap->canId;
-      idIndex++;
-
-      if (idIndex == IDS_PER_BANK)
-      {
-         SetFilterBank(idIndex, filterId, idList);
-      }
-   }
-   //loop terminates before adding last set of filters
-   if (idIndex > 0)
-   {
-      SetFilterBank(idIndex, filterId, idList);
-   }
+   idList[idIndex] = 0x600 + nodeId;
+   idIndex++;
+   SetFilterBank(idIndex, filterId, idList);
 }
 
 int Can::LoadFromFlash()
