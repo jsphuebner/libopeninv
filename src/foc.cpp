@@ -32,7 +32,7 @@
 
 static const s32fp fluxLinkage = FP_FROMFLT(0.09);
 static const s32fp fluxLinkage2 = FP_MUL(fluxLinkage, fluxLinkage);
-static const s32fp lqminusldSquaredBs10 = FP_FROMFLT(0.03444736); //additional 10-bit left shift because otherwise it can't be represented
+static const s32fp lqminusldSquaredBs10 = FP_FROMFLT(0.01722); //additional 10-bit left shift because otherwise it can't be represented
 static const s32fp lqminusld = FP_FROMFLT(0.0058);
 static const u32fp sqrt3 = SQRT3;
 static const s32fp sqrt3inv1 = FP_FROMFLT(0.57735026919); //1/sqrt(3)
@@ -83,9 +83,8 @@ void FOC::Mtpa(int32_t is, int32_t& idref, int32_t& iqref)
 {
    int32_t isSquared = is * is;
    int32_t sign = is < 0 ? -1 : 1;
-   //factor of 8 has been incorporated into the right shift (7 instead of 10)
-   s32fp term1 = fpsqrt(fluxLinkage2 + ((lqminusldSquaredBs10 * isSquared) >> 7));
-   idref = FP_TOINT(FP_DIV(fluxLinkage - term1, 4 * lqminusld));
+   s32fp term1 = fpsqrt(fluxLinkage2 + ((lqminusldSquaredBs10 * isSquared) >> 10));
+   idref = FP_TOINT(FP_DIV(fluxLinkage - term1, lqminusld));
    iqref = sign * (int32_t)sqrt(isSquared - idref * idref);
 }
 
