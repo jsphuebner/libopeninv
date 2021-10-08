@@ -294,7 +294,7 @@ int Can::Remove(Param::PARAM_NUM param)
  * \return void
  *
  */
-Can::Can(uint32_t baseAddr, enum baudrates baudrate)
+Can::Can(uint32_t baseAddr, enum baudrates baudrate, bool remap)
    : lastRxTimestamp(0), sendCnt(0), recvCallback(DummyCallback), nextUserMessageIndex(0), canDev(baseAddr)
 {
    Clear();
@@ -303,11 +303,23 @@ Can::Can(uint32_t baseAddr, enum baudrates baudrate)
    switch (baseAddr)
    {
       case CAN1:
-         // Configure CAN pin: RX (input pull-up).
-         gpio_set_mode(GPIO_BANK_CAN1_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN1_RX);
-         gpio_set(GPIO_BANK_CAN1_RX, GPIO_CAN1_RX);
-         // Configure CAN pin: TX.-
-         gpio_set_mode(GPIO_BANK_CAN1_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN1_TX);
+         if (remap)
+         {
+            // Configure CAN pin: RX (input pull-up).
+            gpio_set_mode(GPIO_BANK_CAN1_PB_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN1_PB_RX);
+            gpio_set(GPIO_BANK_CAN1_PB_RX, GPIO_CAN1_PB_RX);
+            // Configure CAN pin: TX.-
+            gpio_set_mode(GPIO_BANK_CAN1_PB_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN1_PB_TX);
+         }
+         else
+         {
+            // Configure CAN pin: RX (input pull-up).
+            gpio_set_mode(GPIO_BANK_CAN1_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN1_RX);
+            gpio_set(GPIO_BANK_CAN1_RX, GPIO_CAN1_RX);
+            // Configure CAN pin: TX.-
+            gpio_set_mode(GPIO_BANK_CAN1_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN1_TX);
+         }
+
          //CAN1 RX and TX IRQs
          nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ); //CAN RX
          nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, 0xf << 4); //lowest priority
@@ -318,7 +330,23 @@ Can::Can(uint32_t baseAddr, enum baudrates baudrate)
          interfaces[0] = this;
          break;
       case CAN2:
-         // Configure CAN pin: RX (input pull-up).
+         if (remap)
+         {
+            // Configure CAN pin: RX (input pull-up).
+            gpio_set_mode(GPIO_BANK_CAN2_RE_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN2_RE_RX);
+            gpio_set(GPIO_BANK_CAN2_RE_RX, GPIO_CAN2_RE_RX);
+            // Configure CAN pin: TX.-
+            gpio_set_mode(GPIO_BANK_CAN2_RE_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN2_RE_TX);
+         }
+         else
+         {
+            // Configure CAN pin: RX (input pull-up).
+            gpio_set_mode(GPIO_BANK_CAN2_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN2_RX);
+            gpio_set(GPIO_BANK_CAN2_RX, GPIO_CAN2_RX);
+            // Configure CAN pin: TX.-
+            gpio_set_mode(GPIO_BANK_CAN2_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN2_TX);
+         }
+                  // Configure CAN pin: RX (input pull-up).
          gpio_set_mode(GPIO_BANK_CAN2_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN2_RX);
          gpio_set(GPIO_BANK_CAN2_RX, GPIO_CAN2_RX);
          // Configure CAN pin: TX.-

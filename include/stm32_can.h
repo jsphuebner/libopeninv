@@ -51,7 +51,7 @@ public:
       Baud250, Baud500, Baud800, Baud1000, BaudLast
    };
 
-   Can(uint32_t baseAddr, enum baudrates baudrate);
+   Can(uint32_t baseAddr, enum baudrates baudrate, bool remap = false);
    void Clear(void);
    void SetBaudrate(enum baudrates baudrate);
    void Send(uint32_t canId, uint32_t data[2]) { Send(canId, data, 8); }
