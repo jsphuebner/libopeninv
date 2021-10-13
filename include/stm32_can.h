@@ -27,6 +27,19 @@
 #define CAN_ERR_MAXMESSAGES -4
 #define CAN_ERR_MAXITEMS -5
 
+#ifndef MAX_ITEMS_PER_MESSAGE
+#define MAX_ITEMS_PER_MESSAGE    8
+#endif
+#ifndef MAX_MESSAGES
+#define MAX_MESSAGES            10
+#endif
+#ifndef SENDBUFFER_LEN
+#define SENDBUFFER_LEN          20
+#endif
+#ifndef MAX_USER_MESSAGES
+#define MAX_USER_MESSAGES       10
+#endif
+
 class CANIDMAP;
 class SENDBUFFER;
 
@@ -38,7 +51,7 @@ public:
       Baud250, Baud500, Baud800, Baud1000, BaudLast
    };
 
-   Can(uint32_t baseAddr, enum baudrates baudrate);
+   Can(uint32_t baseAddr, enum baudrates baudrate, bool remap = false);
    void Clear(void);
    void SetBaudrate(enum baudrates baudrate);
    void Send(uint32_t canId, uint32_t data[2]) { Send(canId, data, 8); }
@@ -60,10 +73,6 @@ public:
    static Can* GetInterface(int index);
 
 private:
-   static const int MAX_ITEMS_PER_MESSAGE = 8;
-   static const int MAX_MESSAGES = 10;
-   static const int SENDBUFFER_LEN = 20;
-   static const int MAX_USER_MESSAGES = 10;
    static volatile bool isSaving;
 
    struct CANPOS
