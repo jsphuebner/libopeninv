@@ -64,7 +64,7 @@ int Set(PARAM_NUM ParamNum, s32fp ParamVal)
     if (ParamVal >= attribs[ParamNum].min && ParamVal <= attribs[ParamNum].max)
     {
         values[ParamNum] = ParamVal;
-        parm_Change(ParamNum);
+        Change(ParamNum);
         res = 0;
     }
     return res;

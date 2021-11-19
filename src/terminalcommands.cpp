@@ -396,7 +396,7 @@ void TerminalCommands::LoadParameters(Terminal* term, char *arg)
    arg = arg;
    if (0 == parm_load())
    {
-      parm_Change((Param::PARAM_NUM)0);
+      Param::Change((Param::PARAM_NUM)0);
       fprintf(term, "Parameters loaded\r\n");
    }
    else
