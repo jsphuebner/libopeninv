@@ -169,11 +169,15 @@ void Terminal::Run()
 void Terminal::SetNodeId(uint8_t id)
 {
    char one[] = { '1', 0 };
+   char buf[4];
    nodeId = id;
 
    if (nodeId != 1)
    {
-      Send("Disabling terminal, type 'enableuart <id>' to re-enable\r\n");
+      Send("Disabling terminal, type 'enableuart ");
+      my_ltoa(buf, id, 10);
+      Send(buf);
+      Send("' to re-enable\r\n");
    }
 
    EnableUart(one);
