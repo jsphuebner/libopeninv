@@ -25,9 +25,9 @@
 
 const LinBus::HwInfo LinBus::hwInfo[] =
 {
-   { USART1, DMA_CHANNEL4, GPIOA, GPIO_USART1_TX },
-   { USART2, DMA_CHANNEL7, GPIOA, GPIO_USART2_TX },
-   { USART3, DMA_CHANNEL2, GPIOB, GPIO_USART3_TX },
+   { USART1, DMA_CHANNEL4, DMA_CHANNEL5, GPIOA, GPIO_USART1_TX },
+   { USART2, DMA_CHANNEL7, DMA_CHANNEL6, GPIOA, GPIO_USART2_TX },
+   { USART3, DMA_CHANNEL2, DMA_CHANNEL3, GPIOB, GPIO_USART3_TX },
 };
 
 
@@ -58,6 +58,7 @@ LinBus::LinBus(uint32_t usart, int baudrate)
    usart_set_flow_control(usart, USART_FLOWCONTROL_NONE);
    USART_CR2(usart) |= USART_CR2_LINEN;
    usart_enable_tx_dma(usart);
+   usart_enable_rx_dma(usart);
 
    dma_channel_reset(DMA1, hw->dmatx);
    dma_set_read_from_memory(DMA1, hw->dmatx);
@@ -66,6 +67,12 @@ LinBus::LinBus(uint32_t usart, int baudrate)
    dma_set_peripheral_size(DMA1, hw->dmatx, DMA_CCR_PSIZE_8BIT);
    dma_set_memory_size(DMA1, hw->dmatx, DMA_CCR_MSIZE_8BIT);
    dma_enable_memory_increment_mode(DMA1, hw->dmatx);
+
+   dma_channel_reset(DMA1, hw->dmarx);
+   dma_set_peripheral_address(DMA1, hw->dmarx, (uint32_t)&USART_DR(usart));
+   dma_set_peripheral_size(DMA1, hw->dmarx, DMA_CCR_PSIZE_8BIT);
+   dma_set_memory_size(DMA1, hw->dmarx, DMA_CCR_MSIZE_8BIT);
+   dma_enable_memory_increment_mode(DMA1, hw->dmarx);
 
    usart_enable(usart);
 }
@@ -77,7 +84,7 @@ LinBus::LinBus(uint32_t usart, int baudrate)
  * \param len length of payload, if any
  *
  */
-void LinBus::Send(uint8_t id, uint8_t* data, uint8_t len)
+void LinBus::Request(uint8_t id, uint8_t* data, uint8_t len)
 {
    int sendLen = len == 0 ? 2 : len + 3;
 
@@ -85,6 +92,9 @@ void LinBus::Send(uint8_t id, uint8_t* data, uint8_t len)
 
    dma_disable_channel(DMA1, hw->dmatx);
    dma_set_number_of_data(DMA1, hw->dmatx, sendLen);
+   dma_disable_channel(DMA1, hw->dmarx);
+   dma_set_memory_address(DMA1, hw->dmarx, (uint32_t)recvBuffer);
+   dma_set_number_of_data(DMA1, hw->dmarx, sizeof(recvBuffer));
 
    sendBuffer[0] = 0x55; //Sync
    sendBuffer[1] = Parity(id);
@@ -98,24 +108,7 @@ void LinBus::Send(uint8_t id, uint8_t* data, uint8_t len)
 
    USART_CR1(usart) |= USART_CR1_SBK;
    dma_enable_channel(DMA1, hw->dmatx);
-}
-
-/** \brief Check if a break or character was received and store it, if yes
- */
-void LinBus::Receive()
-{
-   if (receiveIdx == sizeof(recvBuffer)) return;
-
-   if (usart_get_flag(usart, USART_SR_LBD))
-   {
-      receiveIdx = 0;
-      USART_SR(usart) &= ~USART_SR_LBD;
-   }
-   else if (usart_get_flag(usart, USART_SR_RXNE))
-   {
-      recvBuffer[receiveIdx] = usart_recv(usart);
-      receiveIdx++;
-   }
+   dma_enable_channel(DMA1, hw->dmarx);
 }
 
 /** \brief Check whether we received valid data with given PID and length
@@ -127,13 +120,18 @@ void LinBus::Receive()
  */
 bool LinBus::HasReceived(uint8_t id, uint8_t requiredLen)
 {
+   int numRcvd = dma_get_number_of_data(DMA1, hw->dmarx);
+   int receiveIdx = sizeof(recvBuffer) - numRcvd;
+
    if (requiredLen > 8) return false;
 
-   if (receiveIdx == (requiredLen + 2) && recvBuffer[1] == Parity(id))
-   {
-      uint8_t checksum = Checksum(recvBuffer[1], &recvBuffer[2], requiredLen);
+   uint8_t pid = Parity(id);
 
-      return checksum == recvBuffer[requiredLen + 2];
+   if (receiveIdx == (requiredLen + payloadIndex + 1) && recvBuffer[pidIndex] == pid)
+   {
+      uint8_t checksum = Checksum(recvBuffer[pidIndex], &recvBuffer[payloadIndex], requiredLen);
+
+      return checksum == recvBuffer[requiredLen + payloadIndex];
    }
 
    return false;
