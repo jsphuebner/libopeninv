@@ -19,7 +19,7 @@
 #include "stm32scheduler.h"
 
 /* return CCRc of TIMt */
-#define TIM_CCR(t,c) (*(volatile uint32_t *)(&TIM_CCR1(t) + (c)))
+#define TIM_CCR(t,c) (*(uint32_t *)(&TIM_CCR1(t) + (c)))
 
 const enum tim_oc_id Stm32Scheduler::ocMap[MAX_TASKS] = { TIM_OC1, TIM_OC2, TIM_OC3, TIM_OC4 };
 
