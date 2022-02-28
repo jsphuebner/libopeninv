@@ -40,12 +40,13 @@ ANA_IN_LIST
 */
 void AnaIn::Start()
 {
-   adc_power_on(ADC1);
+   adc_power_off(ADC1);
    adc_enable_scan_mode(ADC1);
    adc_set_continuous_conversion_mode(ADC1);
+   adc_set_sample_time_on_all_channels(ADC1, SAMPLE_TIME);
+   adc_power_on(ADC1);
    adc_set_dma_continue(ADC1);
    adc_set_right_aligned(ADC1);
-   adc_set_sample_time_on_all_channels(ADC1, SAMPLE_TIME);
    adc_set_regular_sequence(ADC1, ANA_IN_COUNT, channel_array);
    adc_enable_dma(ADC1);
 
@@ -57,6 +58,7 @@ void AnaIn::Start()
    dma_set_number_of_data(DMA2, ADC_DMA_STREAM, NUM_SAMPLES * ANA_IN_COUNT);
    dma_enable_memory_increment_mode(DMA2, ADC_DMA_STREAM);
    dma_enable_circular_mode(DMA2, ADC_DMA_STREAM);
+   dma_channel_select(DMA2, ADC_DMA_STREAM, DMA_SxCR_CHSEL_0);
    dma_enable_stream(DMA2, ADC_DMA_STREAM);
 
    adc_start_conversion_regular(ADC1);
@@ -64,7 +66,7 @@ void AnaIn::Start()
 
 void AnaIn::Configure(uint32_t port, uint8_t pin)
 {
-   gpio_mode_setup(port, GPIO_MODE_INPUT, GPIO_PUPD_NONE, 1 << pin);
+   gpio_mode_setup(port, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, 1 << pin);
    channel_array[GetIndex()] = AdcChFromPort(port, pin);
 }
 

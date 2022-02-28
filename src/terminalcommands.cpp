@@ -239,7 +239,12 @@ void TerminalCommands::PrintParamsJson(Terminal* term, char *arg)
 
          if (Can::GetInterface(0)->FindMap((Param::PARAM_NUM)idx, canId, canOffset, canLength, canGain, isRx))
          {
-            fprintf(term, "\"canid\":%d,\"canoffset\":%d,\"canlength\":%d,\"cangain\":%f,\"isrx\":%s,",
+            fprintf(term, "\"canif\":1,\"canid\":%d,\"canoffset\":%d,\"canlength\":%d,\"cangain\":%f,\"isrx\":%s,",
+                   canId, canOffset, canLength, FP_FROMFLT(canGain), isRx ? "true" : "false");
+         }
+         else if (Can::GetInterface(1)->FindMap((Param::PARAM_NUM)idx, canId, canOffset, canLength, canGain, isRx))
+         {
+            fprintf(term, "\"canif\":2,\"canid\":%d,\"canoffset\":%d,\"canlength\":%d,\"cangain\":%f,\"isrx\":%s,",
                    canId, canOffset, canLength, FP_FROMFLT(canGain), isRx ? "true" : "false");
          }
 
