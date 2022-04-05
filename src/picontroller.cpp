@@ -27,15 +27,15 @@ PiController::PiController()
 int32_t PiController::Run(s32fp curVal)
 {
    s32fp err = refVal - curVal;
+   s32fp esumTemp = esum + err;
 
-   esum += err;
-   int32_t y = FP_TOINT(err * kp + (esum / frequency) * ki);
+   int32_t y = FP_TOINT(err * kp + (esumTemp / frequency) * ki);
    int32_t ylim = MAX(y, minY);
    ylim = MIN(ylim, maxY);
 
-   if (ki != 0)
+   if (ylim == y)
    {
-      esum += FP_FROMINT((ylim - y) * frequency) / ki; //anti windup
+      esum = esumTemp; //anti windup, only integrate when not saturated
    }
 
    return ylim;
