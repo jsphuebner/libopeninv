@@ -62,6 +62,7 @@ public:
    void Save();
    void SetReceiveCallback(void (*recv)(uint32_t, uint32_t*));
    bool RegisterUserMessage(int canId);
+   void ClearUserMessages();
    uint32_t GetLastRxTimestamp();
    int AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain);
    int AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain);

@@ -152,6 +152,14 @@ bool Can::RegisterUserMessage(int canId)
    return false;
 }
 
+/** \brief Remove all CAN Id from user message list
+ */
+void Can::ClearUserMessages()
+{
+   nextUserMessageIndex = 0;
+   ConfigureFilters();
+}
+
 /** \brief Find first occurence of parameter in CAN map and output its mapping info
  *
  * \param[in] param Index of parameter to be looked up
