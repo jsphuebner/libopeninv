@@ -25,10 +25,11 @@
 class FOC
 {
    public:
-      static void ParkClarke(s32fp il1, s32fp il2, uint16_t angle);
+      static void SetAngle(uint16_t angle);
+      static void ParkClarke(s32fp il1, s32fp il2);
       static int32_t GetQLimit(int32_t maxVd);
       static int32_t GetTotalVoltage(int32_t ud, int32_t uq);
-      static void InvParkClarke(int32_t ud, int32_t uq, uint16_t angle);
+      static void InvParkClarke(int32_t ud, int32_t uq);
       static void Mtpa(int32_t is, int32_t& idref, int32_t& iqref);
       static int32_t GetMaximumModulationIndex();
       static s32fp id;
@@ -39,6 +40,8 @@ class FOC
    private:
       static uint32_t sqrt(uint32_t rad);
       static u32fp fpsqrt(u32fp rad);
+      static s32fp sin;
+      static s32fp cos;
 };
 
 #endif // FOC_H

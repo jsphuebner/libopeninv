@@ -18,6 +18,7 @@
  */
 
 #include <libopencm3/stm32/flash.h>
+#include <libopencm3/stm32/desig.h>
 #include <libopencm3/stm32/crc.h>
 #include "params.h"
 #include "param_save.h"
@@ -42,6 +43,14 @@ typedef struct
    uint32_t padding;
 } PARAM_PAGE;
 
+static uint32_t GetFlashAddress()
+{
+   uint32_t flashSize = desig_get_flash_size();
+
+   //Always save parameters to last flash page
+   return FLASH_BASE + flashSize * 1024 - PARAM_BLKNUM * PARAM_BLKSIZE;
+}
+
 /**
 * Save parameters to flash
 *
@@ -50,7 +59,13 @@ typedef struct
 uint32_t parm_save()
 {
    PARAM_PAGE parmPage;
-   unsigned int idx;
+   uint32_t idx;
+   uint32_t paramAddress = GetFlashAddress();
+   uint32_t check = 0xFFFFFFFF;
+   uint32_t* baseAddress = (uint32_t*)paramAddress;
+
+   for (int i = 0; i < PARAM_WORDS; i++, baseAddress++)
+      check &= *baseAddress;
 
    crc_reset();
    memset32((int*)&parmPage, 0xFFFFFFFF, PARAM_WORDS);
@@ -66,12 +81,14 @@ uint32_t parm_save()
 
    parmPage.crc = crc_calculate_block(((uint32_t*)&parmPage), (2 * NUM_PARAMS));
    flash_unlock();
-   flash_erase_page(PARAM_ADDRESS);
+
+   if (check != 0xFFFFFFFF)
+      flash_erase_page(paramAddress);
 
    for (idx = 0; idx < PARAM_WORDS; idx++)
    {
       uint32_t* pData = ((uint32_t*)&parmPage) + idx;
-      flash_program_word(PARAM_ADDRESS + idx * sizeof(uint32_t), *pData);
+      flash_program_word(paramAddress + idx * sizeof(uint32_t), *pData);
    }
    flash_lock();
    return parmPage.crc;
@@ -85,7 +102,8 @@ uint32_t parm_save()
 */
 int parm_load()
 {
-   PARAM_PAGE *parmPage = (PARAM_PAGE *)PARAM_ADDRESS;
+   uint32_t paramAddress = GetFlashAddress();
+   PARAM_PAGE *parmPage = (PARAM_PAGE *)paramAddress;
 
    crc_reset();
    uint32_t crc = crc_calculate_block(((uint32_t*)parmPage), (2 * NUM_PARAMS));

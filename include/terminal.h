@@ -33,7 +33,7 @@ class Terminal: public IPutChar
 {
 public:
    Terminal(uint32_t usart, const TERM_CMD* commands, bool remap = false);
-   void SetNodeId(uint8_t id) { nodeId = id; }
+   void SetNodeId(uint8_t id);
    void Run();
    void PutChar(char c);
    bool KeyPressed();

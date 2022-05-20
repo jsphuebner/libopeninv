@@ -28,12 +28,14 @@
 #include <libopencm3/stm32/flash.h>
 #include <libopencm3/stm32/crc.h>
 #include <libopencm3/stm32/rtc.h>
+#include <libopencm3/stm32/desig.h>
 #include <libopencm3/cm3/common.h>
 #include <libopencm3/cm3/nvic.h>
 #include "stm32_can.h"
 
 #define MAX_INTERFACES        2
 #define IDS_PER_BANK          4
+#define EXT_IDS_PER_BANK      2
 #define SDO_WRITE             0x40
 #define SDO_READ              0x22
 #define SDO_ABORT             0x80
@@ -78,6 +80,7 @@ volatile bool Can::isSaving = false;
 static void DummyCallback(uint32_t i, uint32_t* d) { i=i; d=d; }
 static const CANSPEED canSpeed[Can::BaudLast] =
 {
+   { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 18}, //125kbps
    { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 9 }, //250kbps
    { CAN_BTR_TS1_4TQ, CAN_BTR_TS2_3TQ, 9 }, //500kbps
    { CAN_BTR_TS1_5TQ, CAN_BTR_TS2_3TQ, 5 }, //800kbps
@@ -93,7 +96,7 @@ static const CANSPEED canSpeed[Can::BaudLast] =
  * \param gain Fixed point gain to be multiplied before sending
  * \return success: number of active messages
  * Fault:
- * - CAN_ERR_INVALID_ID ID was > 0x7ff
+ * - CAN_ERR_INVALID_ID ID was > 0x1fffffff
  * - CAN_ERR_INVALID_OFS Offset > 63
  * - CAN_ERR_INVALID_LEN Length > 32
  * - CAN_ERR_MAXMESSAGES Already 10 send messages defined
@@ -118,7 +121,7 @@ int Can::AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, 
  * \param gain Fixed point gain to be multiplied after receiving
  * \return success: number of active messages
  * Fault:
- * - CAN_ERR_INVALID_ID ID was > 0x7ff
+ * - CAN_ERR_INVALID_ID ID was > 0x1fffffff
  * - CAN_ERR_INVALID_OFS Offset > 63
  * - CAN_ERR_INVALID_LEN Length > 32
  * - CAN_ERR_MAXMESSAGES Already 10 receive messages defined
@@ -236,6 +239,7 @@ void Can::Save()
 
    ReplaceParamUidByEnum(canSendMap);
    ReplaceParamUidByEnum(canRecvMap);
+
    isSaving = false;
 }
 
@@ -253,10 +257,10 @@ void Can::SendAll()
 
          s32fp val = Param::Get((Param::PARAM_NUM)curPos->mapParam);
 
-         if (curPos->gain <= 32 && curPos->gain >= -32)
+         //if (curPos->gain <= 32 && curPos->gain >= -32)
             val = FP_MUL(val, curPos->gain);
-         else
-            val /= curPos->gain;
+         //else
+           // val /= curPos->gain;
 
          val += curPos->offset;
          val &= ((1 << curPos->numBits) - 1);
@@ -435,7 +439,7 @@ void Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
 {
    can_disable_irq(canDev, CAN_IER_TMEIE);
 
-   if (can_transmit(canDev, canId, false, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
+   if (can_transmit(canDev, canId, canId > 0x7FF, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
    {
       /* enqueue in send buffer if all TX mailboxes are full */
       sendBuffer[sendCnt].id = canId;
@@ -536,7 +540,9 @@ void Can::HandleRx(int fifo)
 
 void Can::HandleTx()
 {
-   while (sendCnt > 0 && can_transmit(canDev, sendBuffer[sendCnt - 1].id, false, false, sendBuffer[sendCnt - 1].len, (uint8_t*)sendBuffer[sendCnt - 1].data) >= 0)
+   SENDBUFFER* b = sendBuffer; //alias
+
+   while (sendCnt > 0 && can_transmit(canDev, b[sendCnt - 1].id, b[sendCnt - 1].id > 0x7FF, false, b[sendCnt - 1].len, (uint8_t*)b[sendCnt - 1].data) >= 0)
       sendCnt--;
 
    if (sendCnt == 0)
@@ -642,33 +648,71 @@ void Can::SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
    idList[0] = idList[1] = idList[2] = idList[3] = 0;
 }
 
+void Can::SetFilterBank29(int& idIndex, int& filterId, uint32_t* idList)
+{
+   can_filter_id_list_32bit_init(
+         filterId,
+         (idList[0] << 3) | 0x4, //filter extended
+         (idList[1] << 3) | 0x4,
+         filterId & 1,
+         true);
+   idIndex = 0;
+   filterId++;
+   idList[0] = idList[1] = 0;
+}
+
 void Can::ConfigureFilters()
 {
    uint16_t idList[IDS_PER_BANK] = { 0, 0, 0, 0 };
-   int idIndex = 1;
+   uint32_t extIdList[EXT_IDS_PER_BANK] = { 0, 0 };
+   int idIndex = 1, extIdIndex = 0;
    int filterId = canDev == CAN1 ? 0 : ((CAN_FMR(CAN2) >> 8) & 0x3F);
 
    idList[0] = 0x600 + nodeId;
 
    for (int i = 0; i < nextUserMessageIndex; i++)
    {
-      idList[idIndex] = userIds[i];
-      idIndex++;
+      if (userIds[i] > 0x7ff)
+      {
+         extIdList[extIdIndex] = userIds[i];
+         extIdIndex++;
+      }
+      else
+      {
+         idList[idIndex] = userIds[i];
+         idIndex++;
+      }
 
       if (idIndex == IDS_PER_BANK)
       {
          SetFilterBank(idIndex, filterId, idList);
       }
+      if (extIdIndex == EXT_IDS_PER_BANK)
+      {
+         SetFilterBank29(extIdIndex, filterId, extIdList);
+      }
    }
 
    forEachCanMap(curMap, canRecvMap)
    {
-      idList[idIndex] = curMap->canId;
-      idIndex++;
+      if (curMap->canId > 0x7ff)
+      {
+         extIdList[extIdIndex] = curMap->canId;
+         extIdIndex++;
+      }
+      else
+      {
+         idList[idIndex] = curMap->canId;
+         idIndex++;
+      }
 
       if (idIndex == IDS_PER_BANK)
       {
          SetFilterBank(idIndex, filterId, idList);
+      }
+      if (extIdIndex == EXT_IDS_PER_BANK)
+      {
+         SetFilterBank29(extIdIndex, filterId, extIdList);
       }
    }
    //loop terminates before adding last set of filters
@@ -676,12 +720,16 @@ void Can::ConfigureFilters()
    {
       SetFilterBank(idIndex, filterId, idList);
    }
+   if (extIdIndex > 0)
+   {
+      SetFilterBank29(extIdIndex, filterId, extIdList);
+   }
 }
 
 int Can::LoadFromFlash()
 {
-   uint32_t* data = (uint32_t *)CANMAP_ADDRESS;
-   uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS;
+   uint32_t data = GetFlashAddress();
+   uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS(data);
    uint32_t crc;
 
    crc_reset();
@@ -713,8 +761,8 @@ int Can::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
 
 int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset)
 {
-   if (canId > 0x7ff) return CAN_ERR_INVALID_ID;
-   if (offsetBits > 63) return CAN_ERR_INVALID_OFS;
+   if (canId > 0x1fffffff) return CAN_ERR_INVALID_ID;
+   if (offset > 63) return CAN_ERR_INVALID_OFS;
    if (length > 32) return CAN_ERR_INVALID_LEN;
 
    CANIDMAP *existingMap = FindById(canMap, canId);
@@ -762,7 +810,7 @@ void Can::ClearMap(CANIDMAP *canMap)
    }
 }
 
-Can::CANIDMAP* Can::FindById(CANIDMAP *canMap, int canId)
+Can::CANIDMAP* Can::FindById(CANIDMAP *canMap, uint32_t canId)
 {
    for (int i = 0; i < MAX_MESSAGES; i++)
    {

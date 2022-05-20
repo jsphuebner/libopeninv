@@ -1,7 +1,7 @@
 /*
- * This file is part of the libopeninv project.
+ * This file is part of the stm32-sine project.
  *
- * Copyright (C) 2018 Johannes Huebner <dev@johanneshuebner.com>
+ * Copyright (C) 2021 David J. Fiddes <D.J@fiddes.net>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,31 +16,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef STM32_LOADER_H_INCLUDED
-#define STM32_LOADER_H_INCLUDED
-#include <stdint.h>
+#ifndef DELAY_H
+#define DELAY_H
 
-#define PINDEF_BLKNUM    3  //3rd to last flash page
-#define PINDEF_BLKSIZE   1024
-#define NUM_PIN_COMMANDS 10
-#define PIN_IN 0
-#define PIN_OUT 1
-
-struct pindef
+/**
+ * \brief Blocking delay for a period
+ *
+ * \param[in] period Length of the delay in micro-seconds
+ */
+inline void uDelay(int period)
 {
-   uint32_t port;
-   uint16_t pin;
-   uint8_t inout;
-   uint8_t level;
-};
+    // Empirically determined constant by measurement of GPIO toggle
+    // of 1000 uS delay on a 72MHz STM32F103 processor
+    static const int CyclesPerMicroSecond = 12;
 
-struct pincommands
-{
-   struct pindef pindef[NUM_PIN_COMMANDS];
-   uint32_t crc;
-};
+    int iterations = period * CyclesPerMicroSecond;
 
-#define PINDEF_NUMWORDS (sizeof(struct pindef) * NUM_PIN_COMMANDS / 4)
+    for (int i = 0; i < iterations; i++)
+    {
+        __asm__("nop");
+    }
+}
 
-
-#endif // STM32_LOADER_H_INCLUDED
+#endif // DELAY_H
