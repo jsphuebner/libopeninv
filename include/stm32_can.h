@@ -28,22 +28,6 @@
 #define CAN_ERR_MAXITEMS -5
 
 #ifndef MAX_ITEMS_PER_MESSAGE
-#define MAX_ITEMS_PER_MESSAGE    8
-#endif
-#ifndef MAX_MESSAGES
-#define MAX_MESSAGES            10
-#endif
-#ifndef SENDBUFFER_LEN
-#define SENDBUFFER_LEN          20
-#endif
-#ifndef MAX_USER_MESSAGES
-#define MAX_USER_MESSAGES       10
-#endif
-
-class CANIDMAP;
-class SENDBUFFER;
-
-#ifndef MAX_ITEMS_PER_MESSAGE
 #define MAX_ITEMS 70
 #endif // MAX_ITEMS_PER_MESSAGE
 
@@ -58,6 +42,10 @@ class SENDBUFFER;
 #ifndef MAX_USER_MESSAGES
 #define MAX_USER_MESSAGES 10
 #endif // MAX_USER_MESSAGES
+
+
+class CANIDMAP;
+class SENDBUFFER;
 
 class Can
 {
@@ -76,15 +64,15 @@ public:
    void SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, uint32_t data);
    void Save();
    void SetReceiveCallback(void (*recv)(uint32_t, uint32_t*));
-   bool RegisterUserMessage(int canId);
+   bool RegisterUserMessage(uint32_t canId);
    uint32_t GetLastRxTimestamp();
-   int AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain);
-   int AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain);
-   int AddSend(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset);
-   int AddRecv(Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset);
+   int AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain);
+   int AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain);
+   int AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset);
+   int AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset);
    int Remove(Param::PARAM_NUM param);
-   bool FindMap(Param::PARAM_NUM param, int& canId, int& offset, int& length, s32fp& gain, bool& rx);
-   void IterateCanMap(void (*callback)(Param::PARAM_NUM, int, int, int, s32fp, bool));
+   bool FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& offset, uint8_t& length, float& gain, bool& rx);
+   void IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, bool));
    void HandleRx(int fifo);
    void HandleTx();
    void SetNodeId(uint8_t id) { nodeId = id; }
@@ -92,14 +80,6 @@ public:
 
 private:
    static volatile bool isSaving;
-
-   struct CANPOSV1
-   {
-      uint16_t mapParam;
-      s16fp gain;
-      uint8_t offsetBits;
-      int8_t numBits;
-   };
 
    struct CANPOS
    {
@@ -139,7 +119,7 @@ private:
    void ProcessSDO(uint32_t data[2]);
    void ClearMap(CANIDMAP *canMap);
    int RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param);
-   int Add(CANIDMAP *canMap, Param::PARAM_NUM param, int canId, int offsetBits, int length, s16fp gain, int16_t offset);
+   int Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset);
    uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
    int LoadFromFlash();
    CANIDMAP *FindById(CANIDMAP *canMap, uint32_t canId);
