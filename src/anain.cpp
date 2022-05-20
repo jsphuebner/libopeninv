@@ -48,7 +48,7 @@ void AnaIn::Start()
 
    adc_power_on(ADC1);
    /* wait for adc starting up*/
-   for (volatile int i = 0; i < 80000; i++);
+   for (int i = 0; i < 80000; i++);
 
    adc_reset_calibration(ADC1);
    adc_calibrate(ADC1);

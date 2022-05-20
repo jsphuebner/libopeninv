@@ -339,6 +339,7 @@ Can::Can(uint32_t baseAddr, enum baudrates baudrate, bool remap)
             // Configure CAN pin: TX.-
             gpio_set_mode(GPIO_BANK_CAN1_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN1_TX);
          }
+
          //CAN1 RX and TX IRQs
          nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ); //CAN RX
          nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, 0xf << 4); //lowest priority

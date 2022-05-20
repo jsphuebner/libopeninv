@@ -56,11 +56,11 @@ private:
 
 static int prints(IPutChar* put, const char *string, int width, int pad)
 {
-	register int pc = 0, padchar = ' ';
+	int pc = 0, padchar = ' ';
 
 	if (width > 0) {
-		register int len = 0;
-		register const char *ptr;
+		int len = 0;
+		const char *ptr;
 		for (ptr = string; *ptr; ++ptr) ++len;
 		if (len >= width) width = 0;
 		else width -= len;
@@ -90,9 +90,9 @@ static int prints(IPutChar* put, const char *string, int width, int pad)
 static int printi(IPutChar* put, int i, int b, int sg, int width, int pad, int letbase)
 {
 	char print_buf[PRINT_BUF_LEN];
-	register char *s;
-	register int t, neg = 0, pc = 0;
-	register unsigned int u = i;
+	char *s;
+	int t, neg = 0, pc = 0;
+	unsigned int u = i;
 
 	if (i == 0) {
 		print_buf[0] = '0';
@@ -141,8 +141,8 @@ static int printfp(IPutChar* put, int i, int width, int pad)
 
 static int print(IPutChar* put, const char *format, va_list args )
 {
-	register int width, pad;
-	register int pc = 0;
+	int width, pad;
+	int pc = 0;
 	char scr[2];
 
 	for (; *format != 0; ++format) {
@@ -164,7 +164,7 @@ static int print(IPutChar* put, const char *format, va_list args )
 				width += *format - '0';
 			}
 			if( *format == 's' ) {
-				register char *s = (char *)va_arg( args, int );
+				char *s = (char *)va_arg( args, int );
 				pc += prints (put, s?s:"(null)", width, pad);
 				continue;
 			}
