@@ -31,11 +31,11 @@ class CANIDMAP;
 class SENDBUFFER;
 
 #ifndef MAX_ITEMS_PER_MESSAGE
-#define MAX_ITEMS_PER_MESSAGE 8
+#define MAX_ITEMS 70
 #endif // MAX_ITEMS_PER_MESSAGE
 
 #ifndef MAX_MESSAGES
-#define MAX_MESSAGES 10
+#define MAX_MESSAGES 15
 #endif // MAX_MESSAGES
 
 #ifndef SENDBUFFER_LEN
@@ -78,6 +78,8 @@ public:
    static Can* GetInterface(int index);
 
 private:
+   static volatile bool isSaving;
+
    struct CANPOSV1
    {
       uint16_t mapParam;
@@ -88,17 +90,18 @@ private:
 
    struct CANPOS
    {
+      float gain;
       uint16_t mapParam;
-      s16fp gain;
-      int16_t offset;
+      uint8_t offset;
       uint8_t offsetBits;
-      int8_t numBits;
+      uint8_t numBits;
+      uint8_t next;
    };
 
    struct CANIDMAP
    {
-      uint16_t canId;
-      CANPOS items[MAX_ITEMS_PER_MESSAGE];
+      uint32_t canId;
+      uint8_t first;
    };
 
    struct SENDBUFFER
@@ -110,6 +113,7 @@ private:
 
    CANIDMAP canSendMap[MAX_MESSAGES];
    CANIDMAP canRecvMap[MAX_MESSAGES];
+   CANPOS canPosMap[MAX_ITEMS];
    uint32_t lastRxTimestamp;
    SENDBUFFER sendBuffer[SENDBUFFER_LEN];
    int sendCnt;
@@ -131,6 +135,7 @@ private:
    void ReplaceParamUidByEnum(CANIDMAP *canMap);
    void ConfigureFilters();
    void SetFilterBank(int& idIndex, int& filterId, uint16_t* idList);
+   uint32_t GetFlashAddress();
 
    static Can* interfaces[];
 };
