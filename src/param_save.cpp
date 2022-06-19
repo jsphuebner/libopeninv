@@ -115,7 +115,7 @@ int parm_load()
          Param::PARAM_NUM idx = Param::NumFromId(parmPage->data[idxPage].key);
          if (idx != Param::PARAM_INVALID && parmPage->data[idxPage].key > 0)
          {
-            Param::SetFlt(idx, parmPage->data[idxPage].value);
+            Param::SetFixed(idx, parmPage->data[idxPage].value);
             Param::SetFlagsRaw(idx, parmPage->data[idxPage].flags);
          }
       }

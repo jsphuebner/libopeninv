@@ -228,9 +228,10 @@ void TerminalCommands::PrintParamsJson(Terminal* term, char *arg)
    fprintf(term, "{");
    for (uint32_t idx = 0; idx < Param::PARAM_LAST; idx++)
    {
-      int canId, canOffset, canLength;
+      uint32_t canId;
+      uint8_t canOffset, canLength;
       bool isRx;
-      s32fp canGain;
+      float canGain;
       pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
 
       if ((Param::GetFlag((Param::PARAM_NUM)idx) & Param::FLAG_HIDDEN) == 0 || printHidden)
@@ -239,8 +240,8 @@ void TerminalCommands::PrintParamsJson(Terminal* term, char *arg)
 
          if (Can::GetInterface(0)->FindMap((Param::PARAM_NUM)idx, canId, canOffset, canLength, canGain, isRx))
          {
-            fprintf(term, "\"canid\":%d,\"canoffset\":%d,\"canlength\":%d,\"cangain\":%d,\"isrx\":%s,",
-                   canId, canOffset, canLength, canGain, isRx ? "true" : "false");
+            fprintf(term, "\"canid\":%d,\"canoffset\":%d,\"canlength\":%d,\"cangain\":%f,\"isrx\":%s,",
+                   canId, canOffset, canLength, FP_FROMFLT(canGain), isRx ? "true" : "false");
          }
 
          if (Param::IsParam((Param::PARAM_NUM)idx))
@@ -396,7 +397,7 @@ void TerminalCommands::LoadParameters(Terminal* term, char *arg)
    arg = arg;
    if (0 == parm_load())
    {
-      parm_Change((Param::PARAM_NUM)0);
+      Param::Change((Param::PARAM_NUM)0);
       fprintf(term, "Parameters loaded\r\n");
    }
    else
@@ -412,7 +413,7 @@ void TerminalCommands::Reset(Terminal* term, char *arg)
    scb_reset_system();
 }
 
-void TerminalCommands::PrintCanMap(Param::PARAM_NUM param, int canid, int offset, int length, s32fp gain, bool rx)
+void TerminalCommands::PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8_t offset, uint8_t length, float gain, bool rx)
 {
    const char* name = Param::GetAttrib(param)->name;
    fprintf(curTerm, "can ");
@@ -421,5 +422,5 @@ void TerminalCommands::PrintCanMap(Param::PARAM_NUM param, int canid, int offset
       fprintf(curTerm, "rx ");
    else
       fprintf(curTerm, "tx ");
-   fprintf(curTerm, "%s %d %d %d %d\r\n", name, canid, offset, length, gain);
+   fprintf(curTerm, "%s %d %d %d %f\r\n", name, canid, offset, length, FP_FROMFLT(gain));
 }

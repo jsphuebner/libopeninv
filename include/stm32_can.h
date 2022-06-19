@@ -27,12 +27,12 @@
 #define CAN_ERR_MAXMESSAGES -4
 #define CAN_ERR_MAXITEMS -5
 
-#ifndef MAX_ITEMS_PER_MESSAGE
+#ifndef MAX_ITEMS
 #define MAX_ITEMS 70
 #endif // MAX_ITEMS_PER_MESSAGE
 
 #ifndef MAX_MESSAGES
-#define MAX_MESSAGES 15
+#define MAX_MESSAGES 10
 #endif // MAX_MESSAGES
 
 #ifndef SENDBUFFER_LEN
@@ -59,12 +59,14 @@ public:
    void Clear(void);
    void SetBaudrate(enum baudrates baudrate);
    void Send(uint32_t canId, uint32_t data[2]) { Send(canId, data, 8); }
+   void Send(uint32_t canId, uint8_t data[8], uint8_t len) { Send(canId, (uint32_t*)data, len); }
    void Send(uint32_t canId, uint32_t data[2], uint8_t len);
    void SendAll();
    void SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, uint32_t data);
    void Save();
    void SetReceiveCallback(void (*recv)(uint32_t, uint32_t*));
    bool RegisterUserMessage(uint32_t canId);
+   void ClearUserMessages();
    uint32_t GetLastRxTimestamp();
    int AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain);
    int AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain);
@@ -85,7 +87,7 @@ private:
    {
       float gain;
       uint16_t mapParam;
-      uint8_t offset;
+      int8_t offset;
       uint8_t offsetBits;
       uint8_t numBits;
       uint8_t next;
@@ -93,7 +95,11 @@ private:
 
    struct CANIDMAP
    {
+      #ifdef CAN_EXT
       uint32_t canId;
+      #else
+      uint16_t canId;
+      #endif // CAN_EXT
       uint8_t first;
    };
 
@@ -106,7 +112,7 @@ private:
 
    CANIDMAP canSendMap[MAX_MESSAGES];
    CANIDMAP canRecvMap[MAX_MESSAGES];
-   CANPOS canPosMap[MAX_ITEMS];
+   CANPOS canPosMap[MAX_ITEMS + 1]; //Last item is a "tail"
    uint32_t lastRxTimestamp;
    SENDBUFFER sendBuffer[SENDBUFFER_LEN];
    int sendCnt;

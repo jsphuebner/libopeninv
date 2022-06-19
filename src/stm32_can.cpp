@@ -49,13 +49,17 @@
 #define CRC_ADDRESS(b)        (b + sizeof(canSendMap) + sizeof(canRecvMap) + sizeof(canPosMap))
 #define SENDMAP_WORDS         (sizeof(canSendMap) / (sizeof(uint32_t)))
 #define RECVMAP_WORDS         (sizeof(canRecvMap) / (sizeof(uint32_t)))
-#define POSMAP_WORDS          (sizeof(canPosMap) / (sizeof(uint32_t)))
-#define CANID_UNSET           0xffff
+#define POSMAP_WORDS          ((sizeof(CANPOS) * MAX_ITEMS) / (sizeof(uint32_t)))
 #define ITEM_UNSET            0xff
-#define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->canId < CANID_UNSET; c++)
+#define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->first != MAX_ITEMS; c++)
 #define forEachPosMap(c,m) for (CANPOS *c = &canPosMap[m->first]; c->next != ITEM_UNSET; c = &canPosMap[c->next])
 
-#if (MAX_ITEMS * 10 + MAX_MESSAGES * 6 + 4) > FLASH_PAGE_SIZE
+#ifdef CAN_EXT
+#define IDMAPSIZE 8
+#else
+#define IDMAPSIZE 4
+#endif // CAN_EXT
+#if (MAX_ITEMS * 12 + 2 * MAX_MESSAGES * IDMAPSIZE + 4) > FLASH_PAGE_SIZE
 #error CANMAP will not fit in one flash page
 #endif
 
@@ -166,6 +170,14 @@ bool Can::RegisterUserMessage(uint32_t canId)
    return false;
 }
 
+/** \brief Remove all CAN Id from user message list
+ */
+void Can::ClearUserMessages()
+{
+   nextUserMessageIndex = 0;
+   ConfigureFilters();
+}
+
 /** \brief Find first occurence of parameter in CAN map and output its mapping info
  *
  * Memory layout: SendMap, RecvMap, PosMap, CRC
@@ -259,15 +271,16 @@ void Can::SendAll()
 
          val *= curPos->gain;
          val += curPos->offset;
-         val &= ((1 << curPos->numBits) - 1);
+         int ival = val;
+         ival &= ((1 << curPos->numBits) - 1);
 
          if (curPos->offsetBits > 31)
          {
-            data[1] |= val << (curPos->offsetBits - 32);
+            data[1] |= ival << (curPos->offsetBits - 32);
          }
          else
          {
-            data[0] |= val << curPos->offsetBits;
+            data[0] |= ival << curPos->offsetBits;
          }
       }
 
@@ -489,7 +502,7 @@ void Can::HandleRx(int fifo)
    while (can_receive(canDev, fifo, true, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, NULL) > 0)
    {
       //printf("fifo: %d, id: %x, len: %d, data[0]: %x, data[1]: %x\r\n", fifo, id, length, data[0], data[1]);
-      if (id == (0x600U + nodeId) && length == 8) //SDO request, nodeid=1
+      if (id == (0x600U + nodeId) && length == 8) //SDO request
       {
          ProcessSDO(data);
       }
@@ -661,8 +674,6 @@ void Can::ConfigureFilters()
    int idIndex = 1, extIdIndex = 0;
    int filterId = canDev == CAN1 ? 0 : ((CAN_FMR(CAN2) >> 8) & 0x3F);
 
-   idList[0] = 0x600 + nodeId;
-
    for (int i = 0; i < nextUserMessageIndex; i++)
    {
       if (userIds[i] > 0x7ff)
@@ -708,6 +719,7 @@ void Can::ConfigureFilters()
          SetFilterBank29(extIdIndex, filterId, extIdList);
       }
    }
+
    //loop terminates before adding last set of filters
    if (idIndex > 0)
    {
@@ -721,18 +733,18 @@ void Can::ConfigureFilters()
 
 int Can::LoadFromFlash()
 {
-   uint32_t data = GetFlashAddress();
-   uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS(data);
+   uint32_t baseAddress = GetFlashAddress();
+   uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS(baseAddress);
    uint32_t crc;
 
    crc_reset();
-   crc = crc_calculate_block(data, SENDMAP_WORDS + RECVMAP_WORDS + POSMAP_WORDS);
+   crc = crc_calculate_block((uint32_t*)baseAddress, SENDMAP_WORDS + RECVMAP_WORDS + POSMAP_WORDS);
 
    if (storedCrc == crc)
    {
-      memcpy32((int*)canSendMap, (int*)SENDMAP_ADDRESS, SENDMAP_WORDS);
-      memcpy32((int*)canRecvMap, (int*)RECVMAP_ADDRESS, RECVMAP_WORDS);
-      memcpy32((int*)canPosMap, (int*)RECVMAP_ADDRESS, POSMAP_WORDS);
+      memcpy32((int*)canSendMap, (int*)SENDMAP_ADDRESS(baseAddress), SENDMAP_WORDS);
+      memcpy32((int*)canRecvMap, (int*)RECVMAP_ADDRESS(baseAddress), RECVMAP_WORDS);
+      memcpy32((int*)canPosMap, (int*)POSMAP_ADDRESS(baseAddress), POSMAP_WORDS);
       ReplaceParamUidByEnum(canSendMap);
       ReplaceParamUidByEnum(canRecvMap);
       return 1;
@@ -742,12 +754,29 @@ int Can::LoadFromFlash()
 
 int Can::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
 {
-   CANPOS copyMap[MAX_ITEMS];
+   int removed = 0;
+   CANPOS *lastPosMap;
 
-   ClearMap(copyMap);
-   int removed = CopyIdMapExcept(canMap, copyMap, param);
-   ClearMap(canMap);
-   CopyIdMapExcept(copyMap, canMap, param);
+   forEachCanMap(curMap, canMap)
+   {
+      lastPosMap = 0;
+
+      forEachPosMap(curPos, curMap)
+      {
+         if (curPos->mapParam == param)
+         {
+            if (lastPosMap != 0)
+            {
+               lastPosMap->next = curPos->next;
+            }
+            else
+            {
+               curMap->first = curPos->next;
+            }
+         }
+         lastPosMap = curPos;
+      }
+   }
 
    return removed;
 }
@@ -755,14 +784,22 @@ int Can::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
 int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset)
 {
    if (canId > 0x1fffffff) return CAN_ERR_INVALID_ID;
-   if (offset > 63) return CAN_ERR_INVALID_OFS;
+   if (offsetBits > 63) return CAN_ERR_INVALID_OFS;
    if (length > 32) return CAN_ERR_INVALID_LEN;
 
    CANIDMAP *existingMap = FindById(canMap, canId);
 
    if (0 == existingMap)
    {
-      existingMap = FindById(canMap, CANID_UNSET);
+      for (int i = 0; i < MAX_MESSAGES; i++)
+      {
+         if (canMap[i].first == MAX_ITEMS)
+         {
+            existingMap = &canMap[i];
+            break;
+         }
+      }
+
       if (0 == existingMap)
          return CAN_ERR_MAXMESSAGES;
 
@@ -771,10 +808,15 @@ int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t o
 
    int freeIndex;
 
-   for (freeIndex = existingMap->first; freeIndex != ITEM_UNSET; freeIndex = canPosMap[freeIndex].next);
+   for (freeIndex = 0; freeIndex < MAX_ITEMS && canPosMap[freeIndex].next != ITEM_UNSET; freeIndex++);
 
    if (freeIndex == MAX_ITEMS)
       return CAN_ERR_MAXITEMS;
+
+   CANPOS* precedingItem = 0;
+
+   for (int precedingIndex = existingMap->first; precedingIndex != MAX_ITEMS; precedingIndex = canPosMap[precedingIndex].next)
+      precedingItem = &canPosMap[precedingIndex];
 
    CANPOS* freeItem = &canPosMap[freeIndex];
    freeItem->mapParam = param;
@@ -782,6 +824,16 @@ int Can::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t o
    freeItem->offset = offset;
    freeItem->offsetBits = offsetBits;
    freeItem->numBits = length;
+   freeItem->next = MAX_ITEMS;
+
+   if (precedingItem == 0) //first item for this can ID
+   {
+      existingMap->first = freeIndex;
+   }
+   else
+   {
+      precedingItem->next = freeIndex;
+   }
 
    int count = 0;
 
@@ -795,10 +847,11 @@ void Can::ClearMap(CANIDMAP *canMap)
 {
    for (int i = 0; i < MAX_MESSAGES; i++)
    {
-      canMap[i].canId = CANID_UNSET;
+      canMap[i].first = MAX_ITEMS;
    }
 
-   for (int i = 0; i < MAX_ITEMS; i++)
+   //Initialize also tail to ITEM_UNSET
+   for (int i = 0; i < (MAX_ITEMS + 1); i++)
    {
       canPosMap[i].next = ITEM_UNSET;
    }
@@ -806,10 +859,10 @@ void Can::ClearMap(CANIDMAP *canMap)
 
 Can::CANIDMAP* Can::FindById(CANIDMAP *canMap, uint32_t canId)
 {
-   for (int i = 0; i < MAX_MESSAGES; i++)
+   forEachCanMap(curMap, canMap)
    {
-      if (canMap[i].canId == canId)
-         return &canMap[i];
+      if (curMap->canId == canId)
+         return curMap;
    }
    return 0;
 }
@@ -890,7 +943,7 @@ uint32_t Can::GetFlashAddress()
    uint32_t flashSize = desig_get_flash_size();
 
    //Always save CAN mapping to second-to-last flash page
-   return FLASH_BASE + flashSize * 1024 - FLASH_PAGE_SIZE * CAN1_BLKNUM;
+   return FLASH_BASE + flashSize * 1024 - FLASH_PAGE_SIZE * (canDev == CAN1 ? CAN1_BLKNUM : CAN2_BLKNUM);
 }
 
 /* Interrupt service routines */

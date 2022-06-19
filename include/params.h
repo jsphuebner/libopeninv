@@ -60,13 +60,14 @@ namespace Param
       uint32_t id;
    } Attributes;
 
-   int Set(PARAM_NUM ParamNum, s32fp ParamVal);
+   int    Set(PARAM_NUM ParamNum, s32fp ParamVal);
    s32fp  Get(PARAM_NUM ParamNum);
    int    GetInt(PARAM_NUM ParamNum);
-   s32fp  GetScl(PARAM_NUM ParamNum);
+   float  GetFloat(PARAM_NUM ParamNum);
    bool   GetBool(PARAM_NUM ParamNum);
-   void SetInt(PARAM_NUM ParamNum, int ParamVal);
-   void SetFlt(PARAM_NUM ParamNum, s32fp ParamVal);
+   void   SetInt(PARAM_NUM ParamNum, int ParamVal);
+   void   SetFixed(PARAM_NUM ParamNum, s32fp ParamVal);
+   void   SetFloat(PARAM_NUM ParamNum, float ParamVal);
    PARAM_NUM NumFromString(const char *name);
    PARAM_NUM NumFromId(uint32_t id);
    const Attributes *GetAttrib(PARAM_NUM ParamNum);
@@ -76,9 +77,9 @@ namespace Param
    void SetFlag(PARAM_NUM param, PARAM_FLAG flag);
    void ClearFlag(PARAM_NUM param, PARAM_FLAG flag);
    PARAM_FLAG GetFlag(PARAM_NUM param);
-}
 
-//User defined callback
-extern void parm_Change(Param::PARAM_NUM ParamNum);
+   //User defined callback
+   void Change(Param::PARAM_NUM ParamNum);
+}
 
 #endif //PARAM_H_INCLUDED
