@@ -55,12 +55,14 @@ public:
    void Clear(void);
    void SetBaudrate(enum baudrates baudrate);
    void Send(uint32_t canId, uint32_t data[2]) { Send(canId, data, 8); }
+   void Send(uint32_t canId, uint8_t data[8], uint8_t len) { Send(canId, (uint32_t*)data, len); }
    void Send(uint32_t canId, uint32_t data[2], uint8_t len);
    void SendAll();
    void SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, uint32_t data);
    void Save();
    void SetReceiveCallback(void (*recv)(uint32_t, uint32_t*));
    bool RegisterUserMessage(int canId);
+   void ClearUserMessages();
    uint32_t GetLastRxTimestamp();
    int AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain);
    int AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s16fp gain);

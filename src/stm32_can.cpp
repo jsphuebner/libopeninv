@@ -152,6 +152,14 @@ bool Can::RegisterUserMessage(int canId)
    return false;
 }
 
+/** \brief Remove all CAN Id from user message list
+ */
+void Can::ClearUserMessages()
+{
+   nextUserMessageIndex = 0;
+   ConfigureFilters();
+}
+
 /** \brief Find first occurence of parameter in CAN map and output its mapping info
  *
  * \param[in] param Index of parameter to be looked up
@@ -346,11 +354,6 @@ Can::Can(uint32_t baseAddr, enum baudrates baudrate, bool remap)
             // Configure CAN pin: TX.-
             gpio_set_mode(GPIO_BANK_CAN2_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN2_TX);
          }
-                  // Configure CAN pin: RX (input pull-up).
-         gpio_set_mode(GPIO_BANK_CAN2_RX, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_CAN2_RX);
-         gpio_set(GPIO_BANK_CAN2_RX, GPIO_CAN2_RX);
-         // Configure CAN pin: TX.-
-         gpio_set_mode(GPIO_BANK_CAN2_TX, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN2_TX);
 
          //CAN2 RX and TX IRQs
          nvic_enable_irq(NVIC_CAN2_RX0_IRQ); //CAN RX
@@ -478,7 +481,7 @@ void Can::HandleRx(int fifo)
    while (can_receive(canDev, fifo, true, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, NULL) > 0)
    {
       //printf("fifo: %d, id: %x, len: %d, data[0]: %x, data[1]: %x\r\n", fifo, id, length, data[0], data[1]);
-      if (id == (0x600U + nodeId) && length == 8) //SDO request, nodeid=1
+      if (id == (0x600U + nodeId) && length == 8) //SDO request
       {
          ProcessSDO(data);
       }
@@ -507,7 +510,7 @@ void Can::HandleRx(int fifo)
                if (Param::IsParam((Param::PARAM_NUM)curPos->mapParam))
                   Param::Set((Param::PARAM_NUM)curPos->mapParam, val);
                else
-                  Param::SetFlt((Param::PARAM_NUM)curPos->mapParam, val);
+                  Param::SetFixed((Param::PARAM_NUM)curPos->mapParam, val);
             }
             lastRxTimestamp = rtc_get_counter_val();
          }
@@ -630,10 +633,19 @@ void Can::SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
 void Can::ConfigureFilters()
 {
    uint16_t idList[IDS_PER_BANK] = { 0, 0, 0, 0 };
-   int idIndex = 1;
+   int idIndex = 0;
    int filterId = canDev == CAN1 ? 0 : ((CAN_FMR(CAN2) >> 8) & 0x3F);
 
-   idList[0] = 0x600 + nodeId;
+   forEachCanMap(curMap, canRecvMap)
+   {
+      idList[idIndex] = curMap->canId;
+      idIndex++;
+
+      if (idIndex == IDS_PER_BANK)
+      {
+         SetFilterBank(idIndex, filterId, idList);
+      }
+   }
 
    for (int i = 0; i < nextUserMessageIndex; i++)
    {
@@ -646,21 +658,9 @@ void Can::ConfigureFilters()
       }
    }
 
-   forEachCanMap(curMap, canRecvMap)
-   {
-      idList[idIndex] = curMap->canId;
-      idIndex++;
-
-      if (idIndex == IDS_PER_BANK)
-      {
-         SetFilterBank(idIndex, filterId, idList);
-      }
-   }
-   //loop terminates before adding last set of filters
-   if (idIndex > 0)
-   {
-      SetFilterBank(idIndex, filterId, idList);
-   }
+   idList[idIndex] = 0x600 + nodeId;
+   idIndex++;
+   SetFilterBank(idIndex, filterId, idList);
 }
 
 int Can::LoadFromFlash()

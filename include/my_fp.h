@@ -35,6 +35,7 @@
 #define UTOA_FRACDEC 100
 #define FP_DECIMALS 2
 
+#define FP_TOFLOAT(a) (((float)a) / FRAC_FAC)
 #define FP_FROMINT(a) ((s32fp)((a) << CST_DIGITS))
 #define FP_TOINT(a)   ((s32fp)((a) >> CST_DIGITS))
 #define FP_FROMFLT(a) ((s32fp)((a) * FRAC_FAC))

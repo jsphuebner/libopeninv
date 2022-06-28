@@ -64,7 +64,7 @@ int Set(PARAM_NUM ParamNum, s32fp ParamVal)
     if (ParamVal >= attribs[ParamNum].min && ParamVal <= attribs[ParamNum].max)
     {
         values[ParamNum] = ParamVal;
-        parm_Change(ParamNum);
+        Change(ParamNum);
         res = 0;
     }
     return res;
@@ -82,7 +82,7 @@ s32fp Get(PARAM_NUM ParamNum)
 }
 
 /**
-* Get a parameters unscaled digit value
+* Get a parameters integer value
 *
 * @param[in] ParamNum Parameter index
 * @return Parameters value
@@ -90,6 +90,17 @@ s32fp Get(PARAM_NUM ParamNum)
 int GetInt(PARAM_NUM ParamNum)
 {
     return FP_TOINT(values[ParamNum]);
+}
+
+/**
+* Get a parameters float value
+*
+* @param[in] ParamNum Parameter index
+* @return Parameters value
+*/
+float GetFloat(PARAM_NUM ParamNum)
+{
+    return FP_TOFLOAT(values[ParamNum]);
 }
 
 /**
@@ -115,14 +126,25 @@ void SetInt(PARAM_NUM ParamNum, int ParamVal)
 }
 
 /**
-* Set a parameters fixed point value
+* Set a parameters fixed point value without range check and callback
 *
 * @param[in] ParamNum Parameter index
 * @param[in] ParamVal New value of parameter
 */
-void SetFlt(PARAM_NUM ParamNum, s32fp ParamVal)
+void SetFixed(PARAM_NUM ParamNum, s32fp ParamVal)
 {
    values[ParamNum] = ParamVal;
+}
+
+/**
+* Set a parameters floating point value without range check and callback
+*
+* @param[in] ParamNum Parameter index
+* @param[in] ParamVal New value of parameter
+*/
+void SetFloat(PARAM_NUM ParamNum, float ParamVal)
+{
+   values[ParamNum] = FP_FROMFLT(ParamVal);
 }
 
 /**
@@ -197,7 +219,7 @@ void LoadDefaults()
    for (int idx = 0; idx < PARAM_LAST; idx++, curAtr++)
    {
       if (curAtr->id > 0)
-         SetFlt((PARAM_NUM)idx, curAtr->def);
+         SetFixed((PARAM_NUM)idx, curAtr->def);
    }
 }
 
