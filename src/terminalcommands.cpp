@@ -24,10 +24,12 @@
 #include "my_fp.h"
 #include "printf.h"
 #include "param_save.h"
-#include "stm32_can.h"
+#include "canmap.h"
 #include "terminalcommands.h"
 
 static Terminal* curTerm = NULL;
+
+CanMap* TerminalCommands::canMap;
 
 void TerminalCommands::ParamSet(Terminal* term, char* arg)
 {
@@ -238,7 +240,7 @@ void TerminalCommands::PrintParamsJson(Terminal* term, char *arg)
       {
          fprintf(term, "%c\r\n   \"%s\": {\"unit\":\"%s\",\"value\":%f,",comma, pAtr->name, pAtr->unit, Param::Get((Param::PARAM_NUM)idx));
 
-         if (Can::GetInterface(0)->FindMap((Param::PARAM_NUM)idx, canId, canOffset, canLength, canGain, isRx))
+         if (canMap->FindMap((Param::PARAM_NUM)idx, canId, canOffset, canLength, canGain, isRx))
          {
             fprintf(term, "\"canid\":%d,\"canoffset\":%d,\"canlength\":%d,\"cangain\":%f,\"isrx\":%s,",
                    canId, canOffset, canLength, FP_FROMFLT(canGain), isRx ? "true" : "false");
@@ -275,14 +277,14 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
    {
       while (curTerm != NULL); //lock
       curTerm = term;
-      Can::GetInterface(0)->IterateCanMap(PrintCanMap);
+      canMap->IterateCanMap(PrintCanMap);
       curTerm = NULL;
       return;
    }
 
    if (arg[0] == 'c')
    {
-      Can::GetInterface(0)->Clear();
+      canMap->Clear();
       fprintf(term, "All message definitions cleared\r\n");
       return;
    }
@@ -317,7 +319,7 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
 
    if (op == 'd')
    {
-      result = Can::GetInterface(0)->Remove(paramIdx);
+      result = canMap->Remove(paramIdx);
       fprintf(term, "%d entries removed\r\n", result);
       return;
    }
@@ -354,11 +356,11 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
 
    if (op == 't')
    {
-      result = Can::GetInterface(0)->AddSend(paramIdx, values[0], values[1], values[2], values[3]);
+      result = canMap->AddSend(paramIdx, values[0], values[1], values[2], values[3]);
    }
    else
    {
-      result = Can::GetInterface(0)->AddRecv(paramIdx, values[0], values[1], values[2], values[3]);
+      result = canMap->AddRecv(paramIdx, values[0], values[1], values[2], values[3]);
    }
 
    switch (result)
@@ -386,7 +388,7 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
 void TerminalCommands::SaveParameters(Terminal* term, char *arg)
 {
    arg = arg;
-   Can::GetInterface(0)->Save();
+   canMap->Save();
    fprintf(term, "CANMAP stored\r\n");
    uint32_t crc = parm_save();
    fprintf(term, "Parameters stored, CRC=%x\r\n", crc);
