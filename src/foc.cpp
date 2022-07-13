@@ -37,7 +37,7 @@ static const s32fp lqminusld = FP_FROMFLT(0.0058);
 static const u32fp sqrt3 = SQRT3;
 static const s32fp sqrt3inv1 = FP_FROMFLT(0.57735026919); //1/sqrt(3)
 static const s32fp zeroOffset = FP_FROMINT(1);
-static const int32_t modMax = FP_DIV(FP_FROMINT(2U), sqrt3) - 1500;
+static const int32_t modMax = FP_DIV(FP_FROMINT(2U), sqrt3);
 static const int32_t modMaxPow2 = modMax * modMax;
 static const int32_t minPulse = 1000;
 static const int32_t maxPulse = FP_FROMINT(2) - 1000;
@@ -75,16 +75,17 @@ void FOC::ParkClarke(s32fp il1, s32fp il2)
 /** \brief distribute motor current in magnetic torque and reluctance torque with the least total current
  *
  * \param[in] is int32_t total motor current
+ * \param[in] ifw int32_t field weakening current
  * \param[out] idref int32_t& resulting direct current reference
  * \param[out] iqref int32_t& resulting quadrature current reference
  *
  */
-void FOC::Mtpa(int32_t is, int32_t& idref, int32_t& iqref)
+void FOC::Mtpa(int32_t is, int32_t ifw, int32_t& idref, int32_t& iqref)
 {
    int32_t isSquared = is * is;
-   int32_t sign = is < 0 ? -1 : 1;
+   int32_t sign = SIGN(is);
    s32fp term1 = fpsqrt(fluxLinkage2 + ((lqminusldSquaredBs10 * isSquared) >> 10));
-   idref = FP_TOINT(FP_DIV(fluxLinkage - term1, lqminusld));
+   idref = FP_TOINT(FP_DIV(fluxLinkage - term1, lqminusld)) + ifw;
    iqref = sign * (int32_t)sqrt(isSquared - idref * idref);
 }
 
@@ -134,11 +135,11 @@ void FOC::InvParkClarke(int32_t ud, int32_t uq)
       /* Short pulse suppression */
       if (DutyCycles[i] < minPulse)
       {
-         DutyCycles[i] = minPulse;
+         DutyCycles[i] = 0;
       }
       else if (DutyCycles[i] > maxPulse)
       {
-         DutyCycles[i] = maxPulse;
+         DutyCycles[i] = FP_FROMINT(2);
       }
    }
 }
