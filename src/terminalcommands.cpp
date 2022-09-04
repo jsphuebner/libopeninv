@@ -263,11 +263,12 @@ void TerminalCommands::PrintParamsJson(Terminal* term, char *arg)
 void TerminalCommands::MapCan(Terminal* term, char *arg)
 {
    Param::PARAM_NUM paramIdx = Param::PARAM_INVALID;
-   int values[4];
+   int values[5];
    int result;
    char op;
    char *ending;
-   const int numArgs = 4;
+   const int numArgs = 5;
+   float gain;
 
    arg = my_trim(arg);
 
@@ -335,14 +336,10 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
       *ending = 0;
       int iVal = my_atoi(arg);
 
-      //allow gain values < 1 and re-interpret them
-      if (i == (numArgs - 1) && iVal == 0)
+      //special processing for gain
+      if (i == (numArgs - 2))
       {
-         values[i] = fp_atoi(arg, 16);
-         //The can values interprets abs(values) < 32 as gain and > 32 as divider
-         //e.g. 0.25 means integer division by 4 so we need to calculate div = 1/value
-         //0.25 with 16 decimals is 16384, 65536/16384 = 4
-         values[i] = (32 << 16) / values[i];
+         gain = (float)fp_atoi(arg, 16) / 65536.0f;
       }
       else
       {
@@ -354,11 +351,11 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
 
    if (op == 't')
    {
-      result = Can::GetInterface(0)->AddSend(paramIdx, values[0], values[1], values[2], values[3]);
+      result = Can::GetInterface(0)->AddSend(paramIdx, values[0], values[1], values[2], gain, values[4]);
    }
    else
    {
-      result = Can::GetInterface(0)->AddRecv(paramIdx, values[0], values[1], values[2], values[3]);
+      result = Can::GetInterface(0)->AddRecv(paramIdx, values[0], values[1], values[2], gain, values[4]);
    }
 
    switch (result)
