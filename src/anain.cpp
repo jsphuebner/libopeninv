@@ -65,7 +65,8 @@ void AnaIn::Start()
    dma_enable_circular_mode(DMA1, ADC_DMA_CHAN);
    dma_enable_channel(DMA1, ADC_DMA_CHAN);
 
-   adc_start_conversion_regular(ADC1);
+   //adc_start_conversion_regular(ADC1);
+   //ADC_CR2(ADC1) |= ADC_CR2_JSWSTART;
    adc_start_conversion_direct(ADC1);
 }
 
@@ -78,11 +79,11 @@ void AnaIn::Configure(uint32_t port, uint8_t pin)
 /**
 * Get filtered value of given channel
 *
-*  - NUM_SAMPLES = 1: Most recent raw value is returned
-*  - NUM_SAMPLES = 3: Median of last 3 values is returned
+*  - NUM_SAMPLES = 1: Most recent sample is returned
+*  - NUM_SAMPLES = 3: Median of last 3 samples is returned
 *  - NUM_SAMPLES = 9: Median of last 3 medians is returned
 *  - NUM_SAMPLES = 12: Average of last 4 medians is returned
-*  - NUM_SAMPLES <= 16: Average is returned
+*  - NUM_SAMPLES = 64: Average of last 64 samples is returned
 *
 * @return Filtered value
 */
@@ -112,18 +113,18 @@ uint16_t AnaIn::Get()
    }
 
    return (med[0] + med[1] + med[2] + med[3]) >> 2;
-   #elif NUM_SAMPLES <= 16
+   #elif NUM_SAMPLES == 64
    uint16_t *curVal = firstValue;
-   uint16_t avg = 0;
+   uint32_t sum = 0;
 
    for (int i = 0; i < NUM_SAMPLES; i++, curVal += ANA_IN_COUNT)
    {
-      avg += *curVal;
+      sum += *curVal;
    }
 
-   return avg / NUM_SAMPLES;
+   return sum >> 6;
    #else
-   #error NUM_SAMPLES must be <= 16
+   #error NUM_SAMPLES must be 1, 3, 9, 12 or 64
    #endif
 }
 
