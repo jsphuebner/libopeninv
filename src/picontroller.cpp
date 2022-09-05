@@ -33,7 +33,7 @@ int32_t PiController::Run(s32fp curVal)
    int32_t ylim = MAX(y, minY);
    ylim = MIN(ylim, maxY);
 
-   if (ylim == y)
+   if (ylim == y || ABS(esumTemp) < ABS(esum))
    {
       esum = esumTemp; //anti windup, only integrate when not saturated
    }

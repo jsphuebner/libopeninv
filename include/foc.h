@@ -30,7 +30,7 @@ class FOC
       static int32_t GetQLimit(int32_t maxVd);
       static int32_t GetTotalVoltage(int32_t ud, int32_t uq);
       static void InvParkClarke(int32_t ud, int32_t uq);
-      static void Mtpa(int32_t is, int32_t ifw, int32_t& idref, int32_t& iqref);
+      static void Mtpa(int32_t is, int32_t& idref, int32_t& iqref);
       static int32_t GetMaximumModulationIndex();
       static s32fp id;
       static s32fp iq;

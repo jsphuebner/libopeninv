@@ -80,12 +80,12 @@ void FOC::ParkClarke(s32fp il1, s32fp il2)
  * \param[out] iqref int32_t& resulting quadrature current reference
  *
  */
-void FOC::Mtpa(int32_t is, int32_t ifw, int32_t& idref, int32_t& iqref)
+void FOC::Mtpa(int32_t is, int32_t& idref, int32_t& iqref)
 {
    int32_t isSquared = is * is;
    int32_t sign = SIGN(is);
    s32fp term1 = fpsqrt(fluxLinkage2 + ((lqminusldSquaredBs10 * isSquared) >> 10));
-   idref = FP_TOINT(FP_DIV(fluxLinkage - term1, lqminusld)) + ifw;
+   idref = FP_TOINT(FP_DIV(fluxLinkage - term1, lqminusld));
    iqref = sign * (int32_t)sqrt(isSquared - idref * idref);
 }
 
