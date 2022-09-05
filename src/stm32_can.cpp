@@ -191,7 +191,7 @@ void Can::ClearUserMessages()
  * \param[out] rx true: Parameter is received via CAN, false: sent via CAN
  * \return true: parameter is mapped, false: not mapped
  */
-bool Can::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& offset, uint8_t& length, float& gain, bool& rx)
+bool Can::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& offsetBits, uint8_t& length, float& gain, int8_t& offset, bool& rx)
 {
    rx = false;
    bool done = false;
@@ -205,9 +205,10 @@ bool Can::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& offset, uint
             if (curPos->mapParam == param)
             {
                canId = curMap->canId;
-               offset = curPos->offsetBits;
+               offsetBits = curPos->offsetBits;
                length = curPos->numBits;
                gain = curPos->gain;
+               offset = curPos->offset;
                return true;
             }
          }
@@ -465,7 +466,7 @@ void Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
    }
 }
 
-void Can::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, bool))
+void Can::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, int8_t, bool))
 {
    bool done = false, rx = false;
 
@@ -475,7 +476,7 @@ void Can::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, ui
       {
          forEachPosMap(curPos, curMap)
          {
-            callback((Param::PARAM_NUM)curPos->mapParam, curMap->canId, curPos->offsetBits, curPos->numBits, curPos->gain, rx);
+            callback((Param::PARAM_NUM)curPos->mapParam, curMap->canId, curPos->offsetBits, curPos->numBits, curPos->gain, curPos->offset, rx);
          }
       }
       done = rx;
@@ -769,10 +770,25 @@ int Can::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
             {
                lastPosMap->next = curPos->next;
             }
+            else if (curPos->next == MAX_ITEMS)
+            {
+               //We are removing the last item, so now we need
+               //to move all following ID maps down by 1
+               CANIDMAP* nextMap = curMap + 1;
+               forEachCanMap(moveMap, nextMap)
+               {
+                  *curMap = *moveMap;
+                  curMap++;
+               }
+               curMap->first = MAX_ITEMS;
+               //This breaks our loop so in this case we stop removing.
+               return removed + 1;
+            }
             else
             {
                curMap->first = curPos->next;
             }
+            removed++;
          }
          lastPosMap = curPos;
       }

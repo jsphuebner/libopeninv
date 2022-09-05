@@ -229,7 +229,8 @@ void TerminalCommands::PrintParamsJson(Terminal* term, char *arg)
    for (uint32_t idx = 0; idx < Param::PARAM_LAST; idx++)
    {
       uint32_t canId;
-      uint8_t canOffset, canLength;
+      uint8_t canStart, canLength;
+      int8_t offset;
       bool isRx;
       float canGain;
       pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
@@ -238,10 +239,10 @@ void TerminalCommands::PrintParamsJson(Terminal* term, char *arg)
       {
          fprintf(term, "%c\r\n   \"%s\": {\"unit\":\"%s\",\"value\":%f,",comma, pAtr->name, pAtr->unit, Param::Get((Param::PARAM_NUM)idx));
 
-         if (Can::GetInterface(0)->FindMap((Param::PARAM_NUM)idx, canId, canOffset, canLength, canGain, isRx))
+         if (Can::GetInterface(0)->FindMap((Param::PARAM_NUM)idx, canId, canStart, canLength, canGain, offset, isRx))
          {
-            fprintf(term, "\"canid\":%d,\"canoffset\":%d,\"canlength\":%d,\"cangain\":%f,\"isrx\":%s,",
-                   canId, canOffset, canLength, FP_FROMFLT(canGain), isRx ? "true" : "false");
+            fprintf(term, "\"canid\":%d,\"canoffset\":%d,\"canlength\":%d,\"cangain\":%f,\"canadd\":%d,\"isrx\":%s,",
+                   canId, canStart, canLength, FP_FROMFLT(canGain), offset, isRx ? "true" : "false");
          }
 
          if (Param::IsParam((Param::PARAM_NUM)idx))
@@ -263,11 +264,11 @@ void TerminalCommands::PrintParamsJson(Terminal* term, char *arg)
 void TerminalCommands::MapCan(Terminal* term, char *arg)
 {
    Param::PARAM_NUM paramIdx = Param::PARAM_INVALID;
-   int values[5];
+   int values[5] = { 0 };
    int result;
    char op;
    char *ending;
-   const int numArgs = 5;
+   const int numArgs = sizeof(values) / sizeof(int);
    float gain;
 
    arg = my_trim(arg);
@@ -327,7 +328,7 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
    {
       ending = (char *)my_strchr(arg, ' ');
 
-      if (0 == *ending && i < (numArgs - 1))
+      if (0 == *ending && i < (numArgs - 2))
       {
          fprintf(term, "Missing argument\r\n");
          return;
@@ -410,7 +411,7 @@ void TerminalCommands::Reset(Terminal* term, char *arg)
    scb_reset_system();
 }
 
-void TerminalCommands::PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8_t offset, uint8_t length, float gain, bool rx)
+void TerminalCommands::PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8_t offsetBits, uint8_t length, float gain, int8_t offset, bool rx)
 {
    const char* name = Param::GetAttrib(param)->name;
    fprintf(curTerm, "can ");
@@ -419,5 +420,5 @@ void TerminalCommands::PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8
       fprintf(curTerm, "rx ");
    else
       fprintf(curTerm, "tx ");
-   fprintf(curTerm, "%s %d %d %d %f\r\n", name, canid, offset, length, FP_FROMFLT(gain));
+   fprintf(curTerm, "%s %d %d %d %f %d\r\n", name, canid, offsetBits, length, FP_FROMFLT(gain), offset);
 }

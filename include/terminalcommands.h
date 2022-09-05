@@ -36,7 +36,7 @@ class TerminalCommands
    protected:
 
    private:
-      static void PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8_t offset, uint8_t length, float gain, bool rx);
+      static void PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8_t offsetBits, uint8_t length, float gain, int8_t offset, bool rx);
 };
 
 #endif // TERMINALCOMMANDS_H
