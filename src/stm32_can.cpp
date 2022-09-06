@@ -897,39 +897,6 @@ uint32_t Can::SaveToFlash(uint32_t baseAddress, uint32_t* data, int len)
    return crc;
 }
 
-int Can::CopyIdMapExcept(CANIDMAP *source, CANIDMAP *dest, Param::PARAM_NUM param)
-{
-   int i = 0, removed = 0;
-   int j = 0;
-
-   forEachCanMap(curMap, source)
-   {
-      bool discardId = true;
-
-      forEachPosMap(curPos, curMap)
-      {
-         if (curPos->mapParam != param)
-         {
-            discardId = false;
-            canPosMap[j] = *curPos;
-            j++;
-         }
-         else
-         {
-            removed++;
-         }
-      }
-
-      if (!discardId)
-      {
-         dest[i].canId = curMap->canId;
-         i++;
-      }
-   }
-
-   return removed;
-}
-
 void Can::ReplaceParamEnumByUid(CANIDMAP *canMap)
 {
    forEachCanMap(curMap, canMap)

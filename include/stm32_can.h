@@ -129,7 +129,6 @@ private:
    uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
    int LoadFromFlash();
    CANIDMAP *FindById(CANIDMAP *canMap, uint32_t canId);
-   int CopyIdMapExcept(CANIDMAP *source, CANIDMAP *dest, Param::PARAM_NUM param);
    void ReplaceParamEnumByUid(CANIDMAP *canMap);
    void ReplaceParamUidByEnum(CANIDMAP *canMap);
    void ConfigureFilters();
