@@ -30,7 +30,8 @@ class FOC
       static int32_t GetQLimit(int32_t maxVd);
       static int32_t GetTotalVoltage(int32_t ud, int32_t uq);
       static void InvParkClarke(int32_t ud, int32_t uq);
-      static void Mtpa(int32_t is, int32_t& idref, int32_t& iqref);
+      static void Mtpa(float is, float& idref, float& iqref);
+      static void SetMotorParameters(float ldminuslq, float fluxLinkage);
       static int32_t GetMaximumModulationIndex();
       static s32fp id;
       static s32fp iq;
@@ -39,7 +40,8 @@ class FOC
    protected:
    private:
       static uint32_t sqrt(uint32_t rad);
-      static u32fp fpsqrt(u32fp rad);
+      static float floatSqrt(float rad);
+      static int getexp(float f);
       static s32fp sin;
       static s32fp cos;
 };
