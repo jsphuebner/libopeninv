@@ -75,16 +75,25 @@ void FOC::Mtpa(float is, float& idref, float& iqref)
 {
    float isSquared = is * is;
 
-   idref = term1 == 0 ? 0 : 0.25f * (term1 - floatSqrt(term2 + 8 * isSquared));
+   idref = term1 == 0 ? 0 : term1 - floatSqrt(term2 + isSquared / 2);
    iqref = SIGN(is) * floatSqrt(isSquared - idref * idref);
 }
 
+/** \brief Set motor inductance difference between Ld and Lq and flux linkage
+ *
+ * formula found here:
+ * https://www.mathworks.com/help/mcb/ref/mtpacontrolreference.html
+ *
+ * \param ldminuslq inductance difference between Ld and Lq in Henry
+ * \param fluxLinkage rotor flux linkage in Weber
+ *
+ */
 void FOC::SetMotorParameters(float ldminuslq, float fluxLinkage)
 {
    if (ldminuslq > 0)
    {
-      term1 = fluxLinkage / ldminuslq;
-      term2 = (fluxLinkage * fluxLinkage) / (ldminuslq * ldminuslq);
+      term1 = fluxLinkage / (4 * ldminuslq);
+      term2 = (fluxLinkage * fluxLinkage) / (16 * ldminuslq * ldminuslq);
    }
    else
    {
