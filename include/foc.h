@@ -31,7 +31,7 @@ class FOC
       static int32_t GetTotalVoltage(int32_t ud, int32_t uq);
       static void InvParkClarke(int32_t ud, int32_t uq);
       static void Mtpa(float is, float& idref, float& iqref);
-      static void SetMotorParameters(float ldminuslq, float fluxLinkage);
+      static void SetMotorParameters(float lqminusld, float fluxLinkage);
       static int32_t GetMaximumModulationIndex();
       static s32fp id;
       static s32fp iq;
