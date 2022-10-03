@@ -199,17 +199,7 @@ void Terminal::PutChar(char c)
    else if (c == '\n' || curIdx == (bufSize - 1))
    {
       outBuf[curBuf][curIdx] = c;
-
-      while (!dma_get_interrupt_flag(DMA1, hw->dmatx, DMA_TCIF) && !firstSend);
-
-      dma_disable_channel(DMA1, hw->dmatx);
-      dma_set_number_of_data(DMA1, hw->dmatx, curIdx + 1);
-      dma_set_memory_address(DMA1, hw->dmatx, (uint32_t)outBuf[curBuf]);
-      dma_clear_interrupt_flags(DMA1, hw->dmatx, DMA_TCIF);
-      dma_enable_channel(DMA1, hw->dmatx);
-
-      curBuf = !curBuf; //switch buffers
-      firstSend = false; //only needed once so we don't get stuck in the while loop above
+      SendCurrentBuffer(curIdx + 1);
       curIdx = 0;
    }
    else
@@ -217,6 +207,22 @@ void Terminal::PutChar(char c)
       outBuf[curBuf][curIdx] = c;
       curIdx++;
    }
+}
+
+void Terminal::SendBinary(uint8_t* data, uint32_t len)
+{
+   uint32_t limitedLen = len < bufSize ? len : bufSize;
+
+   for (uint32_t i = 0; i < limitedLen; i++)
+      outBuf[curBuf][i] = data[i];
+   SendCurrentBuffer(limitedLen);
+}
+
+void Terminal::SendBinary(uint32_t* data, uint32_t len)
+{
+   uint32_t limitedLen = len < (bufSize / sizeof(uint32_t)) ? len : bufSize / sizeof(uint32_t);
+   memcpy32((int*)outBuf[curBuf], (int*)data, limitedLen);
+   SendCurrentBuffer(limitedLen * sizeof(uint32_t));
 }
 
 bool Terminal::KeyPressed()
@@ -267,11 +273,15 @@ void Terminal::EnableUart(char* arg)
 void Terminal::FastUart(char *arg)
 {
    arg = my_trim(arg);
-   int baud = arg[0] == '0' ? USART_BAUDRATE : 921600;
+   int baud = arg[0] == '0' ? USART_BAUDRATE : (arg[0] == '2' ? 2250000 : 921600);
    if (enabled)
    {
+      char buf[10];
+      my_ltoa(buf, baud, 10);
       Send("OK\r\n");
-      Send("Baud rate now 921600\r\n");
+      Send("Baud rate now ");
+      Send(buf);
+      Send("\r\n");
    }
    usart_set_baudrate(usart, baud);
    usart_set_stopbits(usart, USART_STOPBITS_1);
@@ -301,6 +311,20 @@ void Terminal::Send(const char *str)
 {
    for (;*str > 0; str++)
        usart_send_blocking(usart, *str);
+}
+
+void Terminal::SendCurrentBuffer(uint32_t len)
+{
+   while (!dma_get_interrupt_flag(DMA1, hw->dmatx, DMA_TCIF) && !firstSend);
+
+   dma_disable_channel(DMA1, hw->dmatx);
+   dma_set_number_of_data(DMA1, hw->dmatx, len);
+   dma_set_memory_address(DMA1, hw->dmatx, (uint32_t)outBuf[curBuf]);
+   dma_clear_interrupt_flags(DMA1, hw->dmatx, DMA_TCIF);
+   dma_enable_channel(DMA1, hw->dmatx);
+
+   curBuf = !curBuf; //switch buffers
+   firstSend = false; //only needed once so we don't get stuck in the while loop above
 }
 
 //Backward compatibility for printf

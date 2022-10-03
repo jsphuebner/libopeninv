@@ -27,6 +27,7 @@ class TerminalCommands
       static void ParamGet(Terminal* term, char *arg);
       static void ParamFlag(Terminal* term, char *arg);
       static void ParamStream(Terminal* term, char *arg);
+      static void ParamStreamBinary(Terminal* term, char *arg);
       static void PrintParamsJson(Terminal* term, char *arg);
       static void MapCan(Terminal* term, char *arg);
       static void SaveParameters(Terminal* term, char *arg);
@@ -37,6 +38,7 @@ class TerminalCommands
 
    private:
       static void PrintCanMap(Param::PARAM_NUM param, int canid, int offset, int length, s32fp gain, bool rx);
+      static int ParamNamesToIndexes(char* names, Param::PARAM_NUM* indexes, uint32_t maxIndexes);
 };
 
 #endif // TERMINALCOMMANDS_H
