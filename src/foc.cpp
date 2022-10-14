@@ -27,7 +27,7 @@
 static const u32fp sqrt3 = SQRT3;
 static const s32fp sqrt3inv1 = FP_FROMFLT(0.57735026919); //1/sqrt(3)
 static const s32fp zeroOffset = FP_FROMINT(1);
-static const int32_t modMax = FP_DIV(FP_FROMINT(2U), sqrt3) - 500;
+static const int32_t modMax = FP_DIV(FP_FROMINT(2U), sqrt3) - 200;
 static const int32_t modMaxPow2 = modMax * modMax;
 static const int32_t minPulse = 1000;
 static const int32_t maxPulse = FP_FROMINT(2) - 1000;
