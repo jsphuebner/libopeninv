@@ -161,10 +161,9 @@ void TerminalCommands::ParamStream(Terminal* term, char *arg)
 {
    Param::PARAM_NUM indexes[10];
    int maxIndex = sizeof(indexes) / sizeof(Param::PARAM_NUM);
-   int curIndex = 0;
    int repetitions = -1;
+   int curIndex = 0;
    char* comma;
-   char orig;
 
    arg = my_trim(arg);
    repetitions = my_atoi(arg);
@@ -177,29 +176,7 @@ void TerminalCommands::ParamStream(Terminal* term, char *arg)
    }
    arg++; //move behind space
 
-   do
-   {
-      comma = (char*)my_strchr(arg, ',');
-      orig = *comma;
-      *comma = 0;
-
-      Param::PARAM_NUM idx = Param::NumFromString(arg);
-
-      *comma = orig;
-      arg = comma + 1;
-
-      if (Param::PARAM_INVALID != idx)
-      {
-         indexes[curIndex] = idx;
-         curIndex++;
-      }
-      else
-      {
-         fprintf(term, "Unknown parameter\r\n");
-      }
-   } while (',' == *comma && curIndex < maxIndex);
-
-   maxIndex = curIndex;
+   maxIndex = ParamNamesToIndexes(arg, indexes, maxIndex);
    term->FlushInput();
 
    while (!term->KeyPressed() && (repetitions > 0 || repetitions == -1))
@@ -212,6 +189,43 @@ void TerminalCommands::ParamStream(Terminal* term, char *arg)
          comma = (char*)",";
       }
       fprintf(term, "\r\n");
+      if (repetitions != -1)
+         repetitions--;
+   }
+}
+
+void TerminalCommands::ParamStreamBinary(Terminal* term, char *arg)
+{
+   Param::PARAM_NUM indexes[20];
+   uint32_t buf[20];
+   int maxIndex = sizeof(indexes) / sizeof(Param::PARAM_NUM);
+   int repetitions = -1;
+   int curIndex = 0;
+
+   arg = my_trim(arg);
+   repetitions = my_atoi(arg);
+   arg = (char*)my_strchr(arg, ' ');
+
+   if (0 == *arg)
+   {
+      fprintf(term, "Usage: binstream n val1,val2...\r\n");
+      return;
+   }
+   arg++; //move behind space
+
+   maxIndex = ParamNamesToIndexes(arg, indexes, maxIndex);
+   term->FlushInput();
+
+   while (!term->KeyPressed() && (repetitions > 0 || repetitions == -1))
+   {
+      for (curIndex = 0; curIndex < maxIndex; curIndex++)
+      {
+         s32fp val = Param::Get(indexes[curIndex]);
+         buf[curIndex] = (uint32_t)val;
+      }
+
+      term->SendBinary(buf, maxIndex);
+
       if (repetitions != -1)
          repetitions--;
    }
@@ -421,4 +435,35 @@ void TerminalCommands::PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8
    else
       fprintf(curTerm, "tx ");
    fprintf(curTerm, "%s %d %d %d %f %d\r\n", name, canid, offsetBits, length, FP_FROMFLT(gain), offset);
+}
+
+int TerminalCommands::ParamNamesToIndexes(char* names, Param::PARAM_NUM* indexes, uint32_t maxIndex)
+{
+   uint32_t curIndex = 0;
+   char orig;
+   char* comma;
+
+   do
+   {
+      comma = (char*)my_strchr(names, ',');
+      orig = *comma;
+      *comma = 0;
+
+      Param::PARAM_NUM idx = Param::NumFromString(names);
+
+      *comma = orig;
+      names = comma + 1;
+
+      if (Param::PARAM_INVALID != idx)
+      {
+         indexes[curIndex] = idx;
+         curIndex++;
+      }
+      /*else
+      {
+         fprintf(term, "Unknown parameter\r\n");
+      }*/
+   } while (',' == *comma && curIndex < maxIndex);
+
+   return curIndex;
 }

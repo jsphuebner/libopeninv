@@ -23,24 +23,16 @@
 #include "sine_core.h"
 
 #define SQRT3 FP_FROMFLT(1.732050807568877293527446315059)
-#define R1 FP_FROMFLT(0.03)
-#define S1 FP_FROMFLT(0.15)
-#define R2 FP_FROMFLT(0.5)
-#define S2 FP_FROMFLT(0.5)
-#define S3 FP_FROMFLT(1)
-#define RADSTART(x) x < R1 ? S1 : (x < R2 ? S2 : S3)
 
-static const s32fp fluxLinkage = FP_FROMFLT(0.09);
-static const s32fp fluxLinkage2 = FP_MUL(fluxLinkage, fluxLinkage);
-static const s32fp lqminusldSquaredBs10 = FP_FROMFLT(0.01722); //additional 10-bit left shift because otherwise it can't be represented
-static const s32fp lqminusld = FP_FROMFLT(0.0058);
 static const u32fp sqrt3 = SQRT3;
 static const s32fp sqrt3inv1 = FP_FROMFLT(0.57735026919); //1/sqrt(3)
 static const s32fp zeroOffset = FP_FROMINT(1);
-static const int32_t modMax = FP_DIV(FP_FROMINT(2U), sqrt3) - 1500;
+static const int32_t modMax = FP_DIV(FP_FROMINT(2U), sqrt3) - 200;
 static const int32_t modMaxPow2 = modMax * modMax;
 static const int32_t minPulse = 1000;
 static const int32_t maxPulse = FP_FROMINT(2) - 1000;
+
+static float term1 = 15, term2 = 240;
 
 s32fp FOC::id;
 s32fp FOC::iq;
@@ -79,13 +71,34 @@ void FOC::ParkClarke(s32fp il1, s32fp il2)
  * \param[out] iqref int32_t& resulting quadrature current reference
  *
  */
-void FOC::Mtpa(int32_t is, int32_t& idref, int32_t& iqref)
+void FOC::Mtpa(float is, float& idref, float& iqref)
 {
-   int32_t isSquared = is * is;
-   int32_t sign = is < 0 ? -1 : 1;
-   s32fp term1 = fpsqrt(fluxLinkage2 + ((lqminusldSquaredBs10 * isSquared) >> 10));
-   idref = FP_TOINT(FP_DIV(fluxLinkage - term1, lqminusld));
-   iqref = sign * (int32_t)sqrt(isSquared - idref * idref);
+   float isSquared = is * is;
+
+   idref = term1 == 0 ? 0 : term1 - floatSqrt(term2 + isSquared / 2);
+   iqref = SIGN(is) * floatSqrt(isSquared - idref * idref);
+}
+
+/** \brief Set motor inductance difference between Ld and Lq and flux linkage
+ *
+ * formula found here:
+ * https://www.mathworks.com/help/mcb/ref/mtpacontrolreference.html
+ *
+ * \param lqminusld inductance difference between Ld and Lq in Henry
+ * \param fluxLinkage rotor flux linkage in Weber
+ *
+ */
+void FOC::SetMotorParameters(float lqminusld, float fluxLinkage)
+{
+   if (lqminusld > 0)
+   {
+      term1 = fluxLinkage / (4 * lqminusld);
+      term2 = (fluxLinkage * fluxLinkage) / (16 * lqminusld * lqminusld);
+   }
+   else
+   {
+      term1 = term2 = 0;
+   }
 }
 
 int32_t FOC::GetQLimit(int32_t ud)
@@ -134,11 +147,11 @@ void FOC::InvParkClarke(int32_t ud, int32_t uq)
       /* Short pulse suppression */
       if (DutyCycles[i] < minPulse)
       {
-         DutyCycles[i] = minPulse;
+         DutyCycles[i] = 0;
       }
       else if (DutyCycles[i] > maxPulse)
       {
-         DutyCycles[i] = maxPulse;
+         DutyCycles[i] = FP_FROMINT(2);
       }
    }
 }
@@ -162,16 +175,35 @@ uint32_t FOC::sqrt(uint32_t rad)
    return sqrt;
 }
 
-u32fp FOC::fpsqrt(u32fp rad)
+float FOC::floatSqrt(float rad)
 {
-   u32fp sqrt = RADSTART(rad);
-   u32fp sqrtl;
+	int exp = getexp(rad);
+	//Approximate start value as 2^(log2(rad) / 2 - 1) * 3
+	uint32_t approx = 1 << (16 + (exp / 2 - 1)); //approximation only works from 2^-32 to 2^32
+	float sqrt = approx > 0 ? 3.0f / 65536.0f * approx : 1;
+	float sqrtl;
+	float maxDiff = rad / 10000; //The greater the radiant, the less absolute accuracy we aim for
 
-   do {
-      sqrtl = sqrt;
-      sqrt = (sqrt + FP_DIV(rad, sqrt)) >> 1;
-   } while ((sqrtl - sqrt) > 1);
+	if (rad <= 0) return 0;
 
-   return sqrt;
+	do {
+	   sqrtl = sqrt;
+	   sqrt = (sqrt + rad / sqrt) / 2;
+	} while (ABS(sqrtl - sqrt) > maxDiff);
+
+	return sqrt;
 }
 
+int FOC::getexp(float f)
+{
+   union
+   {
+      float f;
+      struct {
+         unsigned int mantisa : 23;
+         unsigned int exponent : 8;
+         unsigned int sign : 1;
+      } parts;
+   } floatcast = { f };
+   return floatcast.parts.exponent - 127;
+}
