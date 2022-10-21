@@ -35,11 +35,31 @@
 
 #define MAX_INTERFACES        2
 #define IDS_PER_BANK          4
-#define SDO_WRITE             0x40
-#define SDO_READ              0x22
+
+/*
+ * For details of the SDO protocol see:
+ *
+ * CiA 301 - CANopen application layer and communication profile
+ * Section 7.2.4
+ *
+ * OR
+ *
+ * http://www.byteme.org.uk/canopenparent/canopen/sdo-service-data-objects-canopen/
+ *
+ * In the context of CANopen SDO download is from a client to the server/
+ * inverter and upload is from the server/inverter to the client.
+ */
+#define SDO_REQUEST_DOWNLOAD  (1 << 5)
+#define SDO_REQUEST_UPLOAD    (2 << 5)
+#define SDO_RESPONSE_UPLOAD   (2 << 5)
+#define SDO_RESPONSE_DOWNLOAD (3 << 5)
+#define SDO_EXPEDITED         (1 << 1)
+#define SDO_SIZE_SPECIFIED    (1)
+#define SDO_WRITE             (SDO_REQUEST_DOWNLOAD | SDO_EXPEDITED | SDO_SIZE_SPECIFIED)
+#define SDO_READ              SDO_REQUEST_UPLOAD
 #define SDO_ABORT             0x80
-#define SDO_WRITE_REPLY       0x23
-#define SDO_READ_REPLY        0x43
+#define SDO_WRITE_REPLY       SDO_RESPONSE_DOWNLOAD
+#define SDO_READ_REPLY        (SDO_RESPONSE_UPLOAD | SDO_EXPEDITED | SDO_SIZE_SPECIFIED)
 #define SDO_ERR_INVIDX        0x06020000
 #define SDO_ERR_RANGE         0x06090030
 #define SDO_ERR_GENERAL       0x08000000
@@ -554,14 +574,14 @@ void Can::ProcessSDO(uint32_t data[2])
 {
    CAN_SDO *sdo = (CAN_SDO*)data;
 
-   if (sdo->index >= 0x2000 && sdo->index <= 0x2100)
+   if (sdo->index == 0x2000 || (sdo->index & 0xFF00) == 0x2100)
    {
       Param::PARAM_NUM paramIdx = (Param::PARAM_NUM)sdo->subIndex;
 
       //SDO index 0x21xx will look up the parameter by its unique ID
       //using subIndex as low byte and xx as high byte of ID
       if ((sdo->index & 0xFF00) == 0x2100)
-         paramIdx = Param::NumFromId(sdo->subIndex + (sdo->index << 8));
+         paramIdx = Param::NumFromId(sdo->subIndex + ((sdo->index & 0xFF) << 8));
 
       if (paramIdx < Param::PARAM_LAST)
       {
