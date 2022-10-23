@@ -129,8 +129,8 @@ int32_t FOC::GetTotalVoltage(int32_t ud, int32_t uq)
 void FOC::InvParkClarke(int32_t ud, int32_t uq)
 {
    //Inverse Park transformation
-   s32fp ua = (cos * ud - sin * uq) >> CST_DIGITS;
-   s32fp ub = (cos * uq + sin * ud) >> CST_DIGITS;
+   s32fp ua = FP_MUL(cos, ud) - FP_MUL(sin, uq);
+   s32fp ub = FP_MUL(cos, uq) + FP_MUL(sin, ud);
    //Inverse Clarke transformation
    DutyCycles[0] = ua;
    DutyCycles[1] = (-ua + FP_MUL(SQRT3, ub)) / 2;
@@ -151,7 +151,7 @@ void FOC::InvParkClarke(int32_t ud, int32_t uq)
       }
       else if (DutyCycles[i] > maxPulse)
       {
-         DutyCycles[i] = FP_FROMINT(2);
+         DutyCycles[i] = FP_FROMINT(2) - 1;
       }
    }
 }
