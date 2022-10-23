@@ -283,7 +283,7 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
    char op;
    char *ending;
    const int numArgs = sizeof(values) / sizeof(int);
-   float gain;
+   float gain = 1;
 
    arg = my_trim(arg);
 
