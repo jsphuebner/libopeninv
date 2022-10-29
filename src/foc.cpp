@@ -133,8 +133,10 @@ void FOC::InvParkClarke(int32_t ud, int32_t uq)
    s32fp ub = FP_MUL(cos, uq) + FP_MUL(sin, ud);
    //Inverse Clarke transformation
    DutyCycles[0] = ua;
-   DutyCycles[1] = (-ua + FP_MUL(SQRT3, ub)) / 2;
-   DutyCycles[2] = (-ua - FP_MUL(SQRT3, ub)) / 2;
+   ua /= 2;
+   ub /= 2;
+   DutyCycles[1] = (-ua + FP_MUL(SQRT3, ub));
+   DutyCycles[2] = (-ua - FP_MUL(SQRT3, ub));
 
    int32_t offset = SineCore::CalcSVPWMOffset(DutyCycles[0], DutyCycles[1], DutyCycles[2]);
 
@@ -151,7 +153,7 @@ void FOC::InvParkClarke(int32_t ud, int32_t uq)
       }
       else if (DutyCycles[i] > maxPulse)
       {
-         DutyCycles[i] = FP_FROMINT(2) - 1;
+         DutyCycles[i] = FP_FROMINT(2);
       }
    }
 }
