@@ -115,7 +115,18 @@ int parm_load()
          Param::PARAM_NUM idx = Param::NumFromId(parmPage->data[idxPage].key);
          if (idx != Param::PARAM_INVALID && parmPage->data[idxPage].key > 0)
          {
-            Param::SetFixed(idx, parmPage->data[idxPage].value);
+            const Param::Attributes *attr = Param::GetAttrib(idx);
+            // If a PARAM_NUM gets reused we can end up with invalid values in flash.
+            // If the value in flash is out of bounds set to default
+            if ((s32fp)parmPage->data[idxPage].value >= attr->min &&
+                (s32fp)parmPage->data[idxPage].value <= attr->max)
+            {
+               Param::SetFixed(idx, parmPage->data[idxPage].value);
+            }
+            else
+            {
+               Param::SetFixed(idx, attr->def);
+            }
             Param::SetFlagsRaw(idx, parmPage->data[idxPage].flags);
          }
       }
