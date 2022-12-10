@@ -34,12 +34,12 @@ class PiController
        */
       void SetGains(int kp, int ki)
       {
-         this->kp = kp;
-         this->ki = ki;
+         SetProportionalGain(kp);
+         SetIntegralGain(ki);
       }
 
       void SetProportionalGain(int kp) { this->kp = kp; }
-      void SetIntegralGain(int ki) { this->ki = ki; }
+      void SetIntegralGain(int ki);
 
       /** Set regulator target set point
        * \param val regulator target
@@ -51,12 +51,13 @@ class PiController
       /** Set maximum controller output
         * \param val actuator saturation value
         */
-      void SetMinMaxY(int32_t valMin, int32_t valMax) { minY = valMin; maxY = valMax; }
+      void SetMinMaxY(int32_t valMin, int32_t valMax)
+      { minY = valMin; maxY = valMax; SetIntegralGain(ki); }
 
       /** Set calling frequency
        * \param val New value to set
        */
-      void SetCallingFrequency(int val) { frequency = val; }
+      void SetCallingFrequency(int val) { frequency = val; SetIntegralGain(ki); }
 
       /** Run controller to obtain a new actuator value
        * \param curVal currently measured value
@@ -78,6 +79,9 @@ class PiController
       */
       void PreloadIntegrator(int32_t yieldedOutput) { esum = ki != 0 ? FP_FROMINT((yieldedOutput * frequency) / ki) : 0; }
 
+      /** Debug function for getting integrator */
+      s32fp GetIntegrator() { return esum; }
+
    protected:
 
    private:
@@ -88,6 +92,8 @@ class PiController
       int32_t frequency; //!< Calling frequency
       int32_t maxY; //!< upper actuator saturation value
       int32_t minY; //!< lower actuator saturation value
+      int32_t minSum; //!< upper integrator boundary
+      int32_t maxSum; //!< lower integrator boundary
 };
 
 #endif // PIREGULATOR_H

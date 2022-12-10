@@ -36,6 +36,8 @@ public:
    void SetNodeId(uint8_t id);
    void Run();
    void PutChar(char c);
+   void SendBinary(uint8_t* data, uint32_t length);
+   void SendBinary(uint32_t* data, uint32_t length);
    bool KeyPressed();
    void FlushInput();
    void DisableTxDMA();
@@ -58,6 +60,7 @@ private:
    void EnableUart(char* arg);
    void FastUart(char* arg);
    void Send(const char *str);
+   void SendCurrentBuffer(uint32_t len);
 
    static const int bufSize = 128;
    static const HwInfo hwInfo[];

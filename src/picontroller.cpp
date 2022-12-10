@@ -27,16 +27,15 @@ PiController::PiController()
 int32_t PiController::Run(s32fp curVal)
 {
    s32fp err = refVal - curVal;
-   s32fp esumTemp = esum + err;
+   esum += err;
 
-   int32_t y = FP_TOINT(err * kp + (esumTemp / frequency) * ki);
+   //anti windup
+   esum = MIN(esum, maxSum);
+   esum = MAX(esum, minSum);
+
+   int32_t y = FP_TOINT(err * kp + (esum / frequency) * ki);
    int32_t ylim = MAX(y, minY);
    ylim = MIN(ylim, maxY);
-
-   if (ylim == y)
-   {
-      esum = esumTemp; //anti windup, only integrate when not saturated
-   }
 
    return ylim;
 }
@@ -51,3 +50,14 @@ int32_t PiController::RunProportionalOnly(s32fp curVal)
 
    return ylim;
 }
+
+void PiController::SetIntegralGain(int ki)
+ {
+    this->ki = ki;
+
+    if (ki != 0)
+    {
+       minSum = FP_FROMINT((minY * frequency) / ABS(ki));
+       maxSum = FP_FROMINT((maxY * frequency) / ABS(ki));
+    }
+ }

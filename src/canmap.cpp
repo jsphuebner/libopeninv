@@ -23,13 +23,20 @@
 #include <libopencm3/stm32/crc.h>
 #include <libopencm3/stm32/desig.h>
 
-#define SDO_WRITE             0x40
-#define SDO_READ              0x22
+#define SDO_REQUEST_DOWNLOAD  (1 << 5)
+#define SDO_REQUEST_UPLOAD    (2 << 5)
+#define SDO_RESPONSE_UPLOAD   (2 << 5)
+#define SDO_RESPONSE_DOWNLOAD (3 << 5)
+#define SDO_EXPEDITED         (1 << 1)
+#define SDO_SIZE_SPECIFIED    (1)
+#define SDO_WRITE             (SDO_REQUEST_DOWNLOAD | SDO_EXPEDITED | SDO_SIZE_SPECIFIED)
+#define SDO_READ              SDO_REQUEST_UPLOAD
 #define SDO_ABORT             0x80
-#define SDO_WRITE_REPLY       0x23
-#define SDO_READ_REPLY        0x43
+#define SDO_WRITE_REPLY       SDO_RESPONSE_DOWNLOAD
+#define SDO_READ_REPLY        (SDO_RESPONSE_UPLOAD | SDO_EXPEDITED | SDO_SIZE_SPECIFIED)
 #define SDO_ERR_INVIDX        0x06020000
 #define SDO_ERR_RANGE         0x06090030
+#define SDO_ERR_GENERAL       0x08000000
 #define SENDMAP_ADDRESS(b)    b
 #define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
 #define POSMAP_ADDRESS(b)     (b + sizeof(canSendMap) + sizeof(canRecvMap))
