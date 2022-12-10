@@ -262,7 +262,7 @@ void Stm32Can::ConfigureFilters()
 {
    uint16_t idList[IDS_PER_BANK] = { 0, 0, 0, 0 };
    uint32_t extIdList[EXT_IDS_PER_BANK] = { 0, 0 };
-   int idIndex = 1, extIdIndex = 0;
+   int idIndex = 0, extIdIndex = 0;
    int filterId = canDev == CAN1 ? 0 : ((CAN_FMR(CAN2) >> 8) & 0x3F);
 
    for (int i = 0; i < nextUserMessageIndex; i++)
