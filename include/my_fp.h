@@ -57,6 +57,8 @@ char* fp_itoa(char * buf, s32fp a);
 s32fp fp_atoi(const char *str, int fracDigits);
 u32fp fp_sqrt(u32fp rad);
 s32fp fp_ln(unsigned int x);
+u32fp fp_hypot2(s32fp a, s32fp b);
+u32fp fp_hypot3(s32fp a, s32fp b, s32fp c);
 
 #ifdef __cplusplus
 }
