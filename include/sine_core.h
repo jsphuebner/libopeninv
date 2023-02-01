@@ -35,9 +35,9 @@ class SineCore
       static uint32_t Offset;
       static const int BITS;
       static const uint16_t MAXAMP;
+      static int32_t SineLookup(uint16_t Arg);
 
    private:
-      static int32_t SineLookup(uint16_t Arg);
       static int32_t MultiplyAmplitude(uint16_t Amplitude, int32_t Baseval);
       static int32_t min(int32_t a, int32_t b);
       static int32_t max(int32_t a, int32_t b);
