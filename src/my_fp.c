@@ -139,3 +139,32 @@ static s32fp log2_approx(s32fp x, int loopLimit)
 
    return result;
 }
+
+// Calculate the square root of the sum of two squares
+// This scales down the inputs as much as necessary to avoid overflow
+u32fp fp_hypot2(s32fp a, s32fp b)
+{
+  int n = 0;
+  while(a > 16383 || b > 16383 || a < -16383 || b < -16383) {
+    n++;
+    a /= 2;
+    b /= 2;
+  }
+  u32fp result = fp_sqrt(FP_MUL(a,a) + FP_MUL(b,b));
+  return result << n;
+}
+
+// Calculate the square root of the sum on three squares
+// This scales down the inputs as much as necessary to avoid overflow
+u32fp fp_hypot3(s32fp a, s32fp b, s32fp c)
+{
+  int n = 0;
+  while(a > 16383 || b > 16383 || c > 16383 || a < -16383 || b < -16383 || c < -16383) {
+    n++;
+    a /= 2;
+    b /= 2;
+    c /= 2;
+  }
+  u32fp result = fp_sqrt(FP_MUL(a,a) + FP_MUL(b,b) + FP_MUL(c,c));
+  return result << n;
+}
