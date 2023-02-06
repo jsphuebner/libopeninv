@@ -129,12 +129,14 @@ int32_t FOC::GetTotalVoltage(int32_t ud, int32_t uq)
 void FOC::InvParkClarke(int32_t ud, int32_t uq)
 {
    //Inverse Park transformation
-   s32fp ua = (cos * ud - sin * uq) >> CST_DIGITS;
-   s32fp ub = (cos * uq + sin * ud) >> CST_DIGITS;
+   s32fp ua = FP_MUL(cos, ud) - FP_MUL(sin, uq);
+   s32fp ub = FP_MUL(cos, uq) + FP_MUL(sin, ud);
    //Inverse Clarke transformation
    DutyCycles[0] = ua;
-   DutyCycles[1] = (-ua + FP_MUL(SQRT3, ub)) / 2;
-   DutyCycles[2] = (-ua - FP_MUL(SQRT3, ub)) / 2;
+   ua /= 2;
+   ub /= 2;
+   DutyCycles[1] = (-ua + FP_MUL(SQRT3, ub));
+   DutyCycles[2] = (-ua - FP_MUL(SQRT3, ub));
 
    int32_t offset = SineCore::CalcSVPWMOffset(DutyCycles[0], DutyCycles[1], DutyCycles[2]);
 

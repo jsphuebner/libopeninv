@@ -18,7 +18,7 @@
  */
 #ifndef TERMINALCOMMANDS_H
 #define TERMINALCOMMANDS_H
-
+#include "canmap.h"
 
 class TerminalCommands
 {
@@ -33,12 +33,14 @@ class TerminalCommands
       static void SaveParameters(Terminal* term, char *arg);
       static void LoadParameters(Terminal* term, char *arg);
       static void Reset(Terminal* term, char *arg);
+      static void SetCanMap(CanMap* m) { canMap = m; }
 
    protected:
 
    private:
       static void PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8_t offsetBits, uint8_t length, float gain, int8_t offset, bool rx);
       static int ParamNamesToIndexes(char* names, Param::PARAM_NUM* indexes, uint32_t maxIndexes);
+      static CanMap* canMap;
 };
 
 #endif // TERMINALCOMMANDS_H
