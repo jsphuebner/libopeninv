@@ -29,8 +29,8 @@ Stm32Scheduler::Stm32Scheduler(uint32_t timer)
    /* Setup timers upcounting and auto preload enable */
    timer_enable_preload(timer);
    timer_direction_up(timer);
-   /* Set prescaler to count at 100 kHz = 72 MHz/7200 - 1 */
-   timer_set_prescaler(timer, 719);
+   /* Set prescaler to count at 100 kHz */
+   timer_set_prescaler(timer, rcc_apb2_frequency / 100000 - 1);
    /* Maximum counter value */
    timer_set_period(timer, 0xFFFF);
 
@@ -83,7 +83,7 @@ int Stm32Scheduler::GetCpuLoad()
    int totalLoad = 0;
    for (int i = 0; i < nextTask; i++)
    {
-      int load = (10 * execTicks[i]) / periods[i];
+      int load = (100 * execTicks[i]) / periods[i];
       totalLoad += load;
    }
    return totalLoad;
