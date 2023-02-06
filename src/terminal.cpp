@@ -110,6 +110,7 @@ void Terminal::Run()
    {
       if (inBuf[currentIdx - 1] == '\n' || inBuf[currentIdx - 1] == '\r')
       {
+         ResetDMA();
          inBuf[currentIdx] = 0;
          lastIdx = 0;
          char *space = (char*)my_strchr(inBuf, ' ');
@@ -144,8 +145,6 @@ void Terminal::Run()
          {
             pCurCmd = CmdLookup(inBuf);
          }
-
-         ResetDMA();
 
          if (NULL != pCurCmd)
          {
