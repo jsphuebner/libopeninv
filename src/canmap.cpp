@@ -81,6 +81,8 @@ CanMap::CanMap(CanHardware* hw)
 //Somebody (perhaps us) has cleared all user messages. Register them again
 void CanMap::HandleClear()
 {
+   canHardware->RegisterUserMessage(0x600 + nodeId);
+
    forEachCanMap(curMap, canRecvMap)
    {
       canHardware->RegisterUserMessage(curMap->canId);
@@ -352,30 +354,34 @@ void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t,
 void CanMap::ProcessSDO(uint32_t data[2])
 {
    CAN_SDO *sdo = (CAN_SDO*)data;
-   if (sdo->index >= 0x2000 && sdo->index <= 0x2001 && sdo->subIndex < Param::PARAM_LAST)
+   if (sdo->index == 0x2000 || (sdo->index & 0xFF00) == 0x2100)
    {
       Param::PARAM_NUM paramIdx = (Param::PARAM_NUM)sdo->subIndex;
 
-      //SDO index 0x2001 will lookup the parameter by its unique ID
-      if (sdo->index == 0x2001)
-         paramIdx = Param::NumFromId(sdo->subIndex);
+      //SDO index 0x21xx will look up the parameter by its unique ID
+      //using subIndex as low byte and xx as high byte of ID
+      if ((sdo->index & 0xFF00) == 0x2100)
+         paramIdx = Param::NumFromId(sdo->subIndex + ((sdo->index & 0xFF) << 8));
 
-      if (sdo->cmd == SDO_WRITE)
+      if (paramIdx < Param::PARAM_LAST)
       {
-         if (Param::Set(paramIdx, sdo->data) == 0)
+         if (sdo->cmd == SDO_WRITE)
          {
-            sdo->cmd = SDO_WRITE_REPLY;
+            if (Param::Set(paramIdx, sdo->data) == 0)
+            {
+               sdo->cmd = SDO_WRITE_REPLY;
+            }
+            else
+            {
+               sdo->cmd = SDO_ABORT;
+               sdo->data = SDO_ERR_RANGE;
+            }
          }
-         else
+         else if (sdo->cmd == SDO_READ)
          {
-            sdo->cmd = SDO_ABORT;
-            sdo->data = SDO_ERR_RANGE;
+            sdo->data = Param::Get(paramIdx);
+            sdo->cmd = SDO_READ_REPLY;
          }
-      }
-      else if (sdo->cmd == SDO_READ)
-      {
-         sdo->data = Param::Get(paramIdx);
-         sdo->cmd = SDO_READ_REPLY;
       }
    }
    else if (sdo->index >= 0x3000 && sdo->index < 0x4800 && sdo->subIndex < Param::PARAM_LAST)
