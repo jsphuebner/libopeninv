@@ -300,7 +300,7 @@ void CanMap::Save()
  * \param[out] rx true: Parameter is received via CAN, false: sent via CAN
  * \return true: parameter is mapped, false: not mapped
  */
-bool CanMap::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& offset, uint8_t& length, float& gain, bool& rx)
+bool CanMap::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& start, uint8_t& length, float& gain, int8_t& offset, bool& rx)
 {
    rx = false;
    bool done = false;
@@ -314,9 +314,10 @@ bool CanMap::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& offset, u
             if (curPos->mapParam == param)
             {
                canId = curMap->canId;
-               offset = curPos->offsetBits;
+               start = curPos->offsetBits;
                length = curPos->numBits;
                gain = curPos->gain;
+               offset = curPos->offset;
                return true;
             }
          }
@@ -327,7 +328,7 @@ bool CanMap::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& offset, u
    return false;
 }
 
-void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, bool))
+void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, int8_t, bool))
 {
    bool done = false, rx = false;
 
@@ -337,7 +338,7 @@ void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t,
       {
          forEachPosMap(curPos, curMap)
          {
-            callback((Param::PARAM_NUM)curPos->mapParam, curMap->canId, curPos->offsetBits, curPos->numBits, curPos->gain, rx);
+            callback((Param::PARAM_NUM)curPos->mapParam, curMap->canId, curPos->offsetBits, curPos->numBits, curPos->gain, curPos->offset, rx);
          }
       }
       done = rx;
