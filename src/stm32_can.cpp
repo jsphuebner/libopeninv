@@ -46,6 +46,8 @@ static const CANSPEED canSpeed[CanHardware::BaudLast] =
 {
    { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 18}, //125kbps
    { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 9 }, //250kbps
+   //{ CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 3 }, //500kbps
+   //{ CAN_BTR_TS1_10TQ, CAN_BTR_TS2_1TQ, 2 }, //500kbps
    { CAN_BTR_TS1_4TQ, CAN_BTR_TS2_3TQ, 9 }, //500kbps
    { CAN_BTR_TS1_5TQ, CAN_BTR_TS2_3TQ, 5 }, //800kbps
    { CAN_BTR_TS1_6TQ, CAN_BTR_TS2_5TQ, 3 }, //1000kbps

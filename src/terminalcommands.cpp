@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <libopencm3/cm3/scb.h>
+#include <libopencm3/stm32/desig.h>
 #include "hwdefs.h"
 #include "terminal.h"
 #include "params.h"
@@ -233,7 +234,7 @@ void TerminalCommands::ParamStreamBinary(Terminal* term, char *arg)
    }
 }
 
-void TerminalCommands::PrintParamsJson(Terminal* term, char *arg)
+void TerminalCommands::PrintParamsJson(IPutChar* term, char *arg)
 {
    arg = my_trim(arg);
 
@@ -273,6 +274,7 @@ void TerminalCommands::PrintParamsJson(Terminal* term, char *arg)
          comma = ',';
       }
    }
+   fprintf(term, ",\r\n   \"serial\": {\"unit\":\"\",\"value\":\"%08X\",\"isparam\":false}", DESIG_UNIQUE_ID2);
    fprintf(term, "\r\n}\r\n");
 }
 
@@ -412,7 +414,7 @@ void TerminalCommands::LoadParameters(Terminal* term, char *arg)
    arg = arg;
    if (0 == parm_load())
    {
-      Param::Change((Param::PARAM_NUM)0);
+      Param::Change(Param::PARAM_LAST);
       fprintf(term, "Parameters loaded\r\n");
    }
    else

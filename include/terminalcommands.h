@@ -28,7 +28,8 @@ class TerminalCommands
       static void ParamFlag(Terminal* term, char *arg);
       static void ParamStream(Terminal* term, char *arg);
       static void ParamStreamBinary(Terminal* term, char *arg);
-      static void PrintParamsJson(Terminal* term, char *arg);
+      static void PrintParamsJson(IPutChar* term, char *arg);
+      static void PrintParamsJson(Terminal* term, char *arg) { PrintParamsJson((IPutChar*)term, arg); }
       static void MapCan(Terminal* term, char *arg);
       static void SaveParameters(Terminal* term, char *arg);
       static void LoadParameters(Terminal* term, char *arg);

@@ -19,6 +19,7 @@
 #ifndef CANMAP_H
 #define CANMAP_H
 #include "params.h"
+#include "printf.h"
 #include "canhardware.h"
 
 #define CAN_ERR_INVALID_ID -1
@@ -35,7 +36,7 @@
 #define MAX_MESSAGES 10
 #endif
 
-class CanMap: CanCallback
+class CanMap: CanCallback, public IPutChar
 {
    public:
       /** Default constructor */
@@ -54,6 +55,9 @@ class CanMap: CanCallback
       void Save();
       bool FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& start, uint8_t& length, float& gain, int8_t& offset, bool& rx);
       void IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, int8_t, bool));
+      bool StartPrintingJson() { return printJson; }
+      void SignalPrintComplete() { printComplete = true; }
+      void PutChar(char c);
 
    protected:
 
@@ -80,14 +84,25 @@ class CanMap: CanCallback
          uint8_t first;
       };
 
+      struct CAN_SDO
+      {
+         uint8_t cmd;
+         uint16_t index;
+         uint8_t subIndex;
+         uint32_t data;
+      } __attribute__((packed));
+
       CanHardware* canHardware;
       CANIDMAP canSendMap[MAX_MESSAGES];
       CANIDMAP canRecvMap[MAX_MESSAGES];
       CANPOS canPosMap[MAX_ITEMS + 1]; //Last item is a "tail"
       uint32_t lastRxTimestamp;
       uint8_t nodeId;
+      bool printJson;
+      bool printComplete;
 
       void ProcessSDO(uint32_t data[2]);
+      void ProcessSpecialSDOObjects(CAN_SDO *sdo);
       void ClearMap(CANIDMAP *canMap);
       int RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param);
       int Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset);
