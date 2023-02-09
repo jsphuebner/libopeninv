@@ -498,6 +498,8 @@ void CanMap::ProcessSpecialSDOObjects(CAN_SDO* sdo)
    }
    else if (sdo->index == SDO_INDEX_COMMANDS && sdo->cmd == SDO_WRITE)
    {
+      sdo->cmd = SDO_WRITE_REPLY;
+
       switch (sdo->subIndex)
       {
       case SDO_CMD_SAVE:
