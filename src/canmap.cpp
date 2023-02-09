@@ -372,14 +372,18 @@ void CanMap::ProcessSDO(uint32_t data[2])
       sdo->index = printBuffer[0] | (printBuffer[1] << 8);
       sdo->subIndex = printBuffer[2];
       sdo->data = *(uint32_t*)&printBuffer[3];
-      printByte = 0; //reset buffer index to allow printing
-      printJson = false; //make sure we don't print twice
 
       if (printComplete)
       {
          sdo->cmd |= SDO_SIZE_SPECIFIED;
          sdo->cmd |= (7 - printByte) << 1; //specify how many bytes do NOT contain data
       }
+
+      //Clear buffer
+      for (uint32_t i = 0; i < sizeof(printBuffer); i++)
+         printBuffer[i] = 0;
+
+      printByte = 0; //reset buffer index to allow printing
    }
    else if (sdo->index == SDO_INDEX_PARAMS || (sdo->index & 0xFF00) == SDO_INDEX_PARAM_UID)
    {
@@ -457,6 +461,7 @@ void CanMap::PutChar(char c)
    //When print buffer is full, wait
    while (printByte >= sizeof(printBuffer));
    printBuffer[printByte++] = c;
+   printJson = false; //We can clear the print start trigger as we've obviously started printing
 }
 
 void CanMap::ProcessSpecialSDOObjects(CAN_SDO* sdo)
