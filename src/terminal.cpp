@@ -110,51 +110,54 @@ void Terminal::Run()
    {
       if (inBuf[currentIdx - 1] == '\n' || inBuf[currentIdx - 1] == '\r')
       {
+         if (currentIdx > 1) //handle just \n quicker
+         {
+            inBuf[currentIdx] = 0;
+            lastIdx = 0;
+            char *space = (char*)my_strchr(inBuf, ' ');
+
+            if (0 == *space) //No args after command, look for end of line
+            {
+               space = (char*)my_strchr(inBuf, '\n');
+               args[0] = 0;
+            }
+            else //There are arguments, copy everything behind the space
+            {
+               my_strcpy(args, space + 1);
+            }
+
+            if (0 == *space) //No \n found? try \r
+               space = (char*)my_strchr(inBuf, '\r');
+
+            *space = 0;
+            pCurCmd = NULL;
+
+            if (my_strcmp(inBuf, "enableuart") == 0)
+            {
+               EnableUart(args);
+               currentIdx = 0; //Prevent unknown command message
+            }
+            else if (my_strcmp(inBuf, "fastuart") == 0)
+            {
+               FastUart(args);
+               currentIdx = 0;
+            }
+            else
+            {
+               pCurCmd = CmdLookup(inBuf);
+            }
+
+            if (NULL != pCurCmd)
+            {
+               usart_wait_send_ready(usart);
+               pCurCmd->CmdFunc(this, args);
+            }
+            else if (currentIdx > 1 && enabled)
+            {
+               Send("Unknown command sequence\r\n");
+            }
+         }
          ResetDMA();
-         inBuf[currentIdx] = 0;
-         lastIdx = 0;
-         char *space = (char*)my_strchr(inBuf, ' ');
-
-         if (0 == *space) //No args after command, look for end of line
-         {
-            space = (char*)my_strchr(inBuf, '\n');
-            args[0] = 0;
-         }
-         else //There are arguments, copy everything behind the space
-         {
-            my_strcpy(args, space + 1);
-         }
-
-         if (0 == *space) //No \n found? try \r
-            space = (char*)my_strchr(inBuf, '\r');
-
-         *space = 0;
-         pCurCmd = NULL;
-
-         if (my_strcmp(inBuf, "enableuart") == 0)
-         {
-            EnableUart(args);
-            currentIdx = 0; //Prevent unknown command message
-         }
-         else if (my_strcmp(inBuf, "fastuart") == 0)
-         {
-            FastUart(args);
-            currentIdx = 0;
-         }
-         else
-         {
-            pCurCmd = CmdLookup(inBuf);
-         }
-
-         if (NULL != pCurCmd)
-         {
-            usart_wait_send_ready(usart);
-            pCurCmd->CmdFunc(this, args);
-         }
-         else if (currentIdx > 1 && enabled)
-         {
-            Send("Unknown command sequence\r\n");
-         }
       }
       else if (inBuf[0] == '!' && NULL != pCurCmd)
       {
