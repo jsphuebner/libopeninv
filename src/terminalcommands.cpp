@@ -254,7 +254,7 @@ void TerminalCommands::PrintParamsJson(IPutChar* term, char *arg)
 
       if ((Param::GetFlag((Param::PARAM_NUM)idx) & Param::FLAG_HIDDEN) == 0 || printHidden)
       {
-         fprintf(term, "%c\r\n   \"%s\": {\"unit\":\"%s\",\"value\":%f,",comma, pAtr->name, pAtr->unit, Param::Get((Param::PARAM_NUM)idx));
+         fprintf(term, "%c\r\n   \"%s\": {\"unit\":\"%s\",\"id\":%d,\"value\":%f,",comma, pAtr->name, pAtr->unit, pAtr->id, Param::Get((Param::PARAM_NUM)idx));
 
          if (canMap->FindMap((Param::PARAM_NUM)idx, canId, canStart, canLength, canGain, offset, isRx))
          {

@@ -30,6 +30,8 @@
 #include "printf.h"
 #include "my_fp.h"
 
+/* the following should be enough for 32 bit int */
+#define PRINT_BUF_LEN 14
 #define PAD_RIGHT 1
 #define PAD_ZERO 2
 
@@ -83,9 +85,6 @@ static int prints(IPutChar* put, const char *string, int width, int pad)
 
 	return pc;
 }
-
-/* the following should be enough for 32 bit int */
-#define PRINT_BUF_LEN 12
 
 static int printi(IPutChar* put, int i, int b, int sg, int width, int pad, int letbase)
 {

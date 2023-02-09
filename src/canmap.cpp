@@ -48,7 +48,7 @@
 #define SDO_INDEX_MAP_END     0x4800
 #define SDO_INDEX_MAP_RX      0x4000
 #define SDO_INDEX_SERIAL      0x5000
-#define SDO_INDEX_PJSON       0x5001
+#define SDO_INDEX_STRINGS     0x5001
 #define SDO_INDEX_COMMANDS    0x5002
 #define SDO_CMD_SAVE          0
 #define SDO_CMD_LOAD          1
@@ -485,7 +485,7 @@ void CanMap::ProcessSpecialSDOObjects(CAN_SDO* sdo)
          sdo->data = SDO_ERR_INVIDX;
       }
    }
-   else if (sdo->index == SDO_INDEX_PJSON)
+   else if (sdo->index == SDO_INDEX_STRINGS)
    {
       if (sdo->cmd == SDO_READ)
       {
