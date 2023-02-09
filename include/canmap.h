@@ -55,7 +55,7 @@ class CanMap: CanCallback, public IPutChar
       void Save();
       bool FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& start, uint8_t& length, float& gain, int8_t& offset, bool& rx);
       void IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, int8_t, bool));
-      bool StartPrintingJson() { return printJson; }
+      int GetPrintRequest() { return printRequest; }
       void SignalPrintComplete() { printComplete = true; }
       void PutChar(char c);
 
@@ -98,7 +98,7 @@ class CanMap: CanCallback, public IPutChar
       CANPOS canPosMap[MAX_ITEMS + 1]; //Last item is a "tail"
       uint32_t lastRxTimestamp;
       uint8_t nodeId;
-      bool printJson;
+      int printRequest;
       bool printComplete;
 
       void ProcessSDO(uint32_t data[2]);

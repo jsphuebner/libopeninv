@@ -79,7 +79,7 @@ volatile char printBuffer[7];
 volatile uint8_t printByte = 0;
 
 CanMap::CanMap(CanHardware* hw)
- : canHardware(hw), nodeId(1), printJson(false), printComplete(true)
+ : canHardware(hw), nodeId(1), printRequest(-1), printComplete(true)
 {
    canHardware->AddReceiveCallback(this);
 
@@ -461,7 +461,7 @@ void CanMap::PutChar(char c)
    //When print buffer is full, wait
    while (printByte >= sizeof(printBuffer));
    printBuffer[printByte++] = c;
-   printJson = false; //We can clear the print start trigger as we've obviously started printing
+   printRequest = -1; //We can clear the print start trigger as we've obviously started printing
 }
 
 void CanMap::ProcessSpecialSDOObjects(CAN_SDO* sdo)
@@ -493,7 +493,7 @@ void CanMap::ProcessSpecialSDOObjects(CAN_SDO* sdo)
          sdo->cmd = SDO_RESPONSE_UPLOAD | SDO_SIZE_SPECIFIED;
          printByte = 0; //reset buffer index to allow printing
          printComplete = false;
-         printJson = true;
+         printRequest = sdo->subIndex;
       }
    }
    else if (sdo->index == SDO_INDEX_COMMANDS && sdo->cmd == SDO_WRITE)
