@@ -83,7 +83,7 @@ int Stm32Scheduler::GetCpuLoad()
    int totalLoad = 0;
    for (int i = 0; i < nextTask; i++)
    {
-      int load = (100 * execTicks[i]) / periods[i];
+      int load = (1000 * execTicks[i]) / periods[i];
       totalLoad += load;
    }
    return totalLoad;

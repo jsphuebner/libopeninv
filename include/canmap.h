@@ -46,7 +46,7 @@ class CanMap: CanCallback, public IPutChar
       void Clear();
       void SendAll();
       void SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, uint32_t data);
-      void SetNodeId(uint8_t id) { nodeId = id; }
+      void SetNodeId(uint8_t id);
       int AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain);
       int AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain);
       int AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset);
