@@ -243,4 +243,13 @@ PARAM_FLAG GetFlag(PARAM_NUM param)
    return (PARAM_FLAG)flags[param];
 }
 
+uint32_t GetIdSum()
+{
+#define PARAM_ENTRY(category, name, unit, min, max, def, id) id +
+#define VALUE_ENTRY(name, unit, id) id +
+   return PARAM_LIST + 0;
+#undef PARAM_ENTRY
+#undef VALUE_ENTRY
+}
+
 }

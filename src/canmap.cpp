@@ -486,6 +486,9 @@ void CanMap::ProcessSpecialSDOObjects(CAN_SDO* sdo)
       case 2:
          sdo->data = DESIG_UNIQUE_ID2;
          break;
+      case 3:
+         sdo->data = Param::GetIdSum();
+         break;
       default:
          sdo->cmd = SDO_ABORT;
          sdo->data = SDO_ERR_INVIDX;
