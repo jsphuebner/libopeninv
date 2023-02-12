@@ -196,6 +196,12 @@ void CanMap::SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, ui
    canHardware->Send(0x600 + remoteNodeId, d);
 }
 
+void CanMap::SetNodeId(uint8_t id)
+{
+   nodeId = id;
+   HandleClear();
+}
+
 /** \brief Add periodic CAN message
  *
  * \param param Parameter index of parameter to be sent
