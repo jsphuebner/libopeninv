@@ -33,6 +33,7 @@ class FOC
       static void Mtpa(float is, float& idref, float& iqref);
       static void SetMotorParameters(float lqminusld, float fluxLinkage);
       static int32_t GetMaximumModulationIndex();
+      static void SetMaximumModulationIndex(uint32_t m);
       static s32fp id;
       static s32fp iq;
       static int32_t DutyCycles[3];
