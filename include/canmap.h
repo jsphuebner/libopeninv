@@ -41,6 +41,7 @@ class CanMap: CanCallback, public IPutChar
    public:
       /** Default constructor */
       CanMap(CanHardware* hw);
+      CanHardware* GetHardware() { return canHardware; }
       void HandleClear();
       bool HandleRx(uint32_t canId, uint32_t data[2]);
       void Clear();
