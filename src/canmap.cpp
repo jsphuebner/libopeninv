@@ -53,6 +53,7 @@
 #define SDO_CMD_SAVE          0
 #define SDO_CMD_LOAD          1
 #define SDO_CMD_RESET         2
+#define SDO_CMD_DEFAULTS      3
 
 #define SENDMAP_ADDRESS(b)    b
 #define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
@@ -521,6 +522,10 @@ void CanMap::ProcessSpecialSDOObjects(CAN_SDO* sdo)
          break;
       case SDO_CMD_RESET:
          scb_reset_system();
+         break;
+      case SDO_CMD_DEFAULTS:
+         Param::LoadDefaults();
+         Param::Change(Param::PARAM_LAST);
          break;
       default:
          sdo->cmd = SDO_ABORT;
