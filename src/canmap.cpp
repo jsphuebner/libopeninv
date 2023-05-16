@@ -25,6 +25,12 @@
 #include "my_string.h"
 #include "param_save.h"
 
+#ifdef CAN_EXT
+#define MAX_ID 0x1fffffff
+#else
+#define MAX_ID 0x7FF
+#endif // CAN_EXT
+
 #define SDO_REQUEST_DOWNLOAD  (1 << 5)
 #define SDO_REQUEST_UPLOAD    (2 << 5)
 #define SDO_REQUEST_SEGMENT   (3 << 5)
@@ -579,7 +585,7 @@ int CanMap::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
 
 int CanMap::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset)
 {
-   if (canId > 0x1fffffff) return CAN_ERR_INVALID_ID;
+   if (canId > MAX_ID) return CAN_ERR_INVALID_ID;
    if (offsetBits > 63) return CAN_ERR_INVALID_OFS;
    if (length > 32) return CAN_ERR_INVALID_LEN;
 
@@ -653,6 +659,12 @@ uint32_t CanMap::SaveToFlash(uint32_t baseAddress, uint32_t* data, int len)
    return crc;
 }
 
+
+/** \brief Loads message definitions from flash
+ *
+ * \return 1 for success, 0 for CRC error
+ *
+ */
 int CanMap::LoadFromFlash()
 {
    uint32_t baseAddress = GetFlashAddress();
@@ -669,6 +681,61 @@ int CanMap::LoadFromFlash()
       memcpy32((int*)canPosMap, (int*)POSMAP_ADDRESS(baseAddress), POSMAP_WORDS);
       ReplaceParamUidByEnum(canSendMap);
       ReplaceParamUidByEnum(canRecvMap);
+      return 1;
+   }
+   else
+   {
+      return LegacyLoadFromFlash();
+   }
+}
+
+/** \brief Loads the old-style message definitions from flash
+ * \return 1 for success, 0 for CRC error
+ */
+int CanMap::LegacyLoadFromFlash()
+{
+   const int MAX_ITEMS_PER_MESSAGE = 8;
+   const int LEGACY_MAX_MESSAGES   = 10;
+   const int CANID_UNSET           = 0xffff;
+
+   struct LEGACY_CANPOS
+   {
+      uint16_t mapParam;
+      s16fp gain;
+      uint8_t offsetBits;
+      int8_t numBits;
+   };
+
+   struct LEGACY_CANIDMAP
+   {
+      uint16_t canId;
+      LEGACY_CANPOS items[MAX_ITEMS_PER_MESSAGE];
+   };
+
+   auto convert = [this](LEGACY_CANIDMAP* m, CANIDMAP* newIdMap)
+   {
+      for (LEGACY_CANIDMAP *c = m; (c - m) < LEGACY_MAX_MESSAGES && c->canId < CANID_UNSET; c++)
+      {
+         for (LEGACY_CANPOS *cp = c->items; (cp - c->items) < MAX_ITEMS_PER_MESSAGE && cp->numBits > 0; cp++)
+         {
+            Param::PARAM_NUM param = Param::NumFromId(cp->mapParam);
+            Add(newIdMap, param, c->canId, cp->offsetBits, cp->numBits, cp->gain, 0);
+         }
+      }
+   };
+
+   uint32_t data = GetFlashAddress();
+   const int size = sizeof(LEGACY_CANIDMAP) * LEGACY_MAX_MESSAGES * 2;
+   uint32_t storedCrc = *(uint32_t*)(data + size);
+
+   crc_reset();
+   uint32_t crc = crc_calculate_block((uint32_t*)data, size / 4);
+
+   if (storedCrc == crc)
+   {
+      convert((LEGACY_CANIDMAP*)data, canSendMap);
+      convert((LEGACY_CANIDMAP*)(data + sizeof(LEGACY_CANIDMAP) * LEGACY_MAX_MESSAGES), canRecvMap);
+
       return 1;
    }
    return 0;

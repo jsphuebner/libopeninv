@@ -108,6 +108,7 @@ class CanMap: CanCallback, public IPutChar
       int Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset);
       uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
       int LoadFromFlash();
+      int LegacyLoadFromFlash();
       CANIDMAP *FindById(CANIDMAP *canMap, uint32_t canId);
       int CopyIdMapExcept(CANIDMAP *source, CANIDMAP *dest, Param::PARAM_NUM param);
       void ReplaceParamEnumByUid(CANIDMAP *canMap);
