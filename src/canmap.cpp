@@ -712,14 +712,14 @@ int CanMap::LegacyLoadFromFlash()
       LEGACY_CANPOS items[MAX_ITEMS_PER_MESSAGE];
    };
 
-   auto convert = [this](LEGACY_CANIDMAP* m, CANIDMAP* newIdMap)
+   auto convert = [this](LEGACY_CANIDMAP* m, CANIDMAP* newIdMap, bool gainToFloat)
    {
       for (LEGACY_CANIDMAP *c = m; (c - m) < LEGACY_MAX_MESSAGES && c->canId < CANID_UNSET; c++)
       {
          for (LEGACY_CANPOS *cp = c->items; (cp - c->items) < MAX_ITEMS_PER_MESSAGE && cp->numBits > 0; cp++)
          {
             Param::PARAM_NUM param = Param::NumFromId(cp->mapParam);
-            Add(newIdMap, param, c->canId, cp->offsetBits, cp->numBits, cp->gain, 0);
+            Add(newIdMap, param, c->canId, cp->offsetBits, cp->numBits, gainToFloat ? FP_TOFLOAT(cp->gain) : cp->gain, 0);
          }
       }
    };
@@ -733,8 +733,8 @@ int CanMap::LegacyLoadFromFlash()
 
    if (storedCrc == crc)
    {
-      convert((LEGACY_CANIDMAP*)data, canSendMap);
-      convert((LEGACY_CANIDMAP*)(data + sizeof(LEGACY_CANIDMAP) * LEGACY_MAX_MESSAGES), canRecvMap);
+      convert((LEGACY_CANIDMAP*)data, canSendMap, false);
+      convert((LEGACY_CANIDMAP*)(data + sizeof(LEGACY_CANIDMAP) * LEGACY_MAX_MESSAGES), canRecvMap, true);
 
       return 1;
    }
