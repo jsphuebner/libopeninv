@@ -26,6 +26,7 @@
 namespace Param
 {
    #define PARAM_ENTRY(category, name, unit, min, max, def, id) name,
+   #define TESTP_ENTRY(category, name, unit, min, max, def, id) name,
    #define VALUE_ENTRY(name, unit, id) name,
    typedef enum
    {
@@ -34,20 +35,21 @@ namespace Param
        PARAM_INVALID
    } PARAM_NUM;
    #undef PARAM_ENTRY
+   #undef TESTP_ENTRY
    #undef VALUE_ENTRY
-
-   typedef enum
-   {
-       TYPE_PARAM,
-       TYPE_VALUE,
-       TYPE_LAST
-   } PARAM_TYPE;
 
    typedef enum
    {
       FLAG_NONE = 0,
       FLAG_HIDDEN = 1
    } PARAM_FLAG;
+
+   typedef enum
+   {
+      TYPE_PARAM,
+      TYPE_TESTPARAM,
+      TYPE_SPOTVALUE,
+   } PARAM_TYPE;
 
    typedef struct
    {
@@ -57,7 +59,8 @@ namespace Param
       s32fp min;
       s32fp max;
       s32fp def;
-      uint32_t id;
+      uint16_t id;
+      uint16_t type;
    } Attributes;
 
    int    Set(PARAM_NUM ParamNum, s32fp ParamVal);
@@ -71,12 +74,12 @@ namespace Param
    PARAM_NUM NumFromString(const char *name);
    PARAM_NUM NumFromId(uint32_t id);
    const Attributes *GetAttrib(PARAM_NUM ParamNum);
-   int IsParam(PARAM_NUM ParamNum);
    void LoadDefaults();
    void SetFlagsRaw(PARAM_NUM param, uint8_t rawFlags);
    void SetFlag(PARAM_NUM param, PARAM_FLAG flag);
    void ClearFlag(PARAM_NUM param, PARAM_FLAG flag);
    PARAM_FLAG GetFlag(PARAM_NUM param);
+   PARAM_TYPE GetType(PARAM_NUM param);
    uint32_t GetIdSum();
 
    //User defined callback

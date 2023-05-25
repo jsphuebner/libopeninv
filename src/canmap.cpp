@@ -137,7 +137,7 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2])
             val += curPos->offset;
             val *= curPos->gain;
 
-            if (Param::IsParam((Param::PARAM_NUM)curPos->mapParam))
+            if (Param::GetType((Param::PARAM_NUM)curPos->mapParam) == Param::TYPE_PARAM || Param::GetType((Param::PARAM_NUM)curPos->mapParam) == Param::TYPE_TESTPARAM)
                Param::Set((Param::PARAM_NUM)curPos->mapParam, FP_FROMFLT(val));
             else
                Param::SetFloat((Param::PARAM_NUM)curPos->mapParam, val);

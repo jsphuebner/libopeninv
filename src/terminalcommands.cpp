@@ -262,7 +262,7 @@ void TerminalCommands::PrintParamsJson(IPutChar* term, char *arg)
                    canId, canStart, canLength, FP_FROMFLT(canGain), offset, isRx ? "true" : "false");
          }
 
-         if (Param::IsParam((Param::PARAM_NUM)idx))
+         if (Param::GetType((Param::PARAM_NUM)idx) == Param::TYPE_PARAM || Param::GetType((Param::PARAM_NUM)idx) == Param::TYPE_TESTPARAM)
          {
             fprintf(term, "\"isparam\":true,\"minimum\":%f,\"maximum\":%f,\"default\":%f,\"category\":\"%s\",\"i\":%d}",
                    pAtr->min, pAtr->max, pAtr->def, pAtr->category, idx);

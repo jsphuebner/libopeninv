@@ -71,12 +71,15 @@ uint32_t parm_save()
    memset32((int*)&parmPage, 0xFFFFFFFF, PARAM_WORDS);
 
    //Copy parameter values and keys to block structure
-   for (idx = 0; Param::IsParam((Param::PARAM_NUM)idx) && idx < NUM_PARAMS; idx++)
+   for (idx = 0; idx < NUM_PARAMS; idx++)
    {
-      const Param::Attributes *pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
-      parmPage.data[idx].flags = (uint8_t)Param::GetFlag((Param::PARAM_NUM)idx);
-      parmPage.data[idx].key = pAtr->id;
-      parmPage.data[idx].value = Param::Get((Param::PARAM_NUM)idx);
+      if (Param::GetType((Param::PARAM_NUM)idx) == Param::TYPE_PARAM)
+      {
+         const Param::Attributes *pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
+         parmPage.data[idx].flags = (uint8_t)Param::GetFlag((Param::PARAM_NUM)idx);
+         parmPage.data[idx].key = pAtr->id;
+         parmPage.data[idx].value = Param::Get((Param::PARAM_NUM)idx);
+      }
    }
 
    parmPage.crc = crc_calculate_block(((uint32_t*)&parmPage), (2 * NUM_PARAMS));
