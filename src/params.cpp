@@ -51,12 +51,46 @@ static uint8_t flags[] =
 #undef VALUE_ENTRY
 
 /**
-* Set a parameter
-*
-* @param[in] ParamNum Parameter index
-* @param[in] ParamVal New value of parameter
-* @return 0 if set ok, -1 if ParamVal outside of allowed range
-*/
+ * A enumeration containing all parameters numbered by their unique ID
+ */
+#define PARAM_ENTRY(category, name, unit, min, max, def, id) ParamIdEnum_##name = id,
+#define VALUE_ENTRY(name, unit, id) ParamIdEnum_##name = id,
+enum ParamIdEnum
+{
+    PARAM_LIST
+};
+#undef PARAM_ENTRY
+#undef VALUE_ENTRY
+
+/**
+ * Force the use of the ParamIdEnum to ensure that all IDs are unique
+ * Note: This function is never used
+ */
+void CheckParamIdDuplicates(ParamIdEnum id)
+{
+
+#define PARAM_ENTRY(category, name, unit, min, max, def, id) \
+case ParamIdEnum_##name:                                     \
+    break;
+#define VALUE_ENTRY(name, unit, id) \
+case ParamIdEnum_##name:            \
+    break;
+
+    switch (id)
+    {
+        PARAM_LIST
+    }
+#undef PARAM_ENTRY
+#undef VALUE_ENTRY
+}
+
+/**
+ * Set a parameter
+ *
+ * @param[in] ParamNum Parameter index
+ * @param[in] ParamVal New value of parameter
+ * @return 0 if set ok, -1 if ParamVal outside of allowed range
+ */
 int Set(PARAM_NUM ParamNum, s32fp ParamVal)
 {
     char res = -1;
