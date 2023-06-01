@@ -71,7 +71,7 @@ uint32_t parm_save()
    memset32((int*)&parmPage, 0xFFFFFFFF, PARAM_WORDS);
 
    //Copy parameter values and keys to block structure
-   for (idx = 0; idx < NUM_PARAMS; idx++)
+   for (idx = 0; idx < NUM_PARAMS && idx < Param::PARAM_LAST; idx++)
    {
       if (Param::GetType((Param::PARAM_NUM)idx) == Param::TYPE_PARAM)
       {
