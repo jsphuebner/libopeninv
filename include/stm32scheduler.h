@@ -20,8 +20,6 @@
 #define STM32SCHEDULER_H
 #include <stdint.h>
 #include <libopencm3/stm32/timer.h>
-#include <libopencm3/cm3/nvic.h>
-#include <libopencm3/stm32/rcc.h>
 
 #define MAX_TASKS 4
 
