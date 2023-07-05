@@ -65,16 +65,21 @@ void Stm32Scheduler::AddTask(void (*function)(void), uint16_t period)
 
 void Stm32Scheduler::Run()
 {
-   for (int i = 0; i < nextTask; i++)
+   for (int i = 0; i < MAX_TASKS; i++)
    {
-      if (timer_get_flag(timer, TIM_SR_CC1IF << i))
+      if (i < nextTask && timer_get_flag(timer, TIM_SR_CC1IF << i))
       {
          uint16_t start = timer_get_counter(timer);
 
-         timer_clear_flag(timer, TIM_SR_CC1IF << i);
          TIM_CCR(timer, i) += periods[i];
          functions[i]();
          execTicks[i] = timer_get_counter(timer) - start;
+         timer_clear_flag(timer, TIM_SR_CC1IF << i);
+      }
+      else if (i >= nextTask)
+      {
+         //Also clear flags of unused channels, they seem to fire the interrupt as well...
+         timer_clear_flag(timer, TIM_SR_CC1IF << i);
       }
    }
 }

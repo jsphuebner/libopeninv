@@ -35,7 +35,7 @@ class Stm32Scheduler
 
       /** @brief Add a periodic task, can be called up to 4 times
        * @param function the task function
-       * @param period The calling period in 100*ms
+       * @param period The calling period in ms, maximum 655
        */
       void AddTask(void (*function)(void), uint16_t period);
 
