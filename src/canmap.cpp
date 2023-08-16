@@ -25,6 +25,12 @@
 #include "my_string.h"
 #include "param_save.h"
 
+#ifdef CAN_EXT
+#define MAX_ID 0x1fffffff
+#else
+#define MAX_ID 0x7FF
+#endif // CAN_EXT
+
 #define SDO_REQUEST_DOWNLOAD  (1 << 5)
 #define SDO_REQUEST_UPLOAD    (2 << 5)
 #define SDO_REQUEST_SEGMENT   (3 << 5)
@@ -53,6 +59,7 @@
 #define SDO_CMD_SAVE          0
 #define SDO_CMD_LOAD          1
 #define SDO_CMD_RESET         2
+#define SDO_CMD_DEFAULTS      3
 
 #define SENDMAP_ADDRESS(b)    b
 #define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
@@ -130,7 +137,7 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2])
             val += curPos->offset;
             val *= curPos->gain;
 
-            if (Param::IsParam((Param::PARAM_NUM)curPos->mapParam))
+            if (Param::GetType((Param::PARAM_NUM)curPos->mapParam) == Param::TYPE_PARAM || Param::GetType((Param::PARAM_NUM)curPos->mapParam) == Param::TYPE_TESTPARAM)
                Param::Set((Param::PARAM_NUM)curPos->mapParam, FP_FROMFLT(val));
             else
                Param::SetFloat((Param::PARAM_NUM)curPos->mapParam, val);
@@ -486,6 +493,9 @@ void CanMap::ProcessSpecialSDOObjects(CAN_SDO* sdo)
       case 2:
          sdo->data = DESIG_UNIQUE_ID2;
          break;
+      case 3:
+         sdo->data = Param::GetIdSum();
+         break;
       default:
          sdo->cmd = SDO_ABORT;
          sdo->data = SDO_ERR_INVIDX;
@@ -518,6 +528,10 @@ void CanMap::ProcessSpecialSDOObjects(CAN_SDO* sdo)
          break;
       case SDO_CMD_RESET:
          scb_reset_system();
+         break;
+      case SDO_CMD_DEFAULTS:
+         Param::LoadDefaults();
+         Param::Change(Param::PARAM_LAST);
          break;
       default:
          sdo->cmd = SDO_ABORT;
@@ -571,7 +585,7 @@ int CanMap::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
 
 int CanMap::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset)
 {
-   if (canId > 0x1fffffff) return CAN_ERR_INVALID_ID;
+   if (canId > MAX_ID) return CAN_ERR_INVALID_ID;
    if (offsetBits > 63) return CAN_ERR_INVALID_OFS;
    if (length > 32) return CAN_ERR_INVALID_LEN;
 
@@ -645,6 +659,12 @@ uint32_t CanMap::SaveToFlash(uint32_t baseAddress, uint32_t* data, int len)
    return crc;
 }
 
+
+/** \brief Loads message definitions from flash
+ *
+ * \return 1 for success, 0 for CRC error
+ *
+ */
 int CanMap::LoadFromFlash()
 {
    uint32_t baseAddress = GetFlashAddress();
@@ -661,6 +681,61 @@ int CanMap::LoadFromFlash()
       memcpy32((int*)canPosMap, (int*)POSMAP_ADDRESS(baseAddress), POSMAP_WORDS);
       ReplaceParamUidByEnum(canSendMap);
       ReplaceParamUidByEnum(canRecvMap);
+      return 1;
+   }
+   else
+   {
+      return LegacyLoadFromFlash();
+   }
+}
+
+/** \brief Loads the old-style message definitions from flash
+ * \return 1 for success, 0 for CRC error
+ */
+int CanMap::LegacyLoadFromFlash()
+{
+   const int MAX_ITEMS_PER_MESSAGE = 8;
+   const int LEGACY_MAX_MESSAGES   = 10;
+   const int CANID_UNSET           = 0xffff;
+
+   struct LEGACY_CANPOS
+   {
+      uint16_t mapParam;
+      s16fp gain;
+      uint8_t offsetBits;
+      int8_t numBits;
+   };
+
+   struct LEGACY_CANIDMAP
+   {
+      uint16_t canId;
+      LEGACY_CANPOS items[MAX_ITEMS_PER_MESSAGE];
+   };
+
+   auto convert = [this](LEGACY_CANIDMAP* m, CANIDMAP* newIdMap, bool gainToFloat)
+   {
+      for (LEGACY_CANIDMAP *c = m; (c - m) < LEGACY_MAX_MESSAGES && c->canId < CANID_UNSET; c++)
+      {
+         for (LEGACY_CANPOS *cp = c->items; (cp - c->items) < MAX_ITEMS_PER_MESSAGE && cp->numBits > 0; cp++)
+         {
+            Param::PARAM_NUM param = Param::NumFromId(cp->mapParam);
+            Add(newIdMap, param, c->canId, cp->offsetBits, cp->numBits, gainToFloat ? FP_TOFLOAT(cp->gain) : cp->gain, 0);
+         }
+      }
+   };
+
+   uint32_t data = GetFlashAddress();
+   const int size = sizeof(LEGACY_CANIDMAP) * LEGACY_MAX_MESSAGES * 2;
+   uint32_t storedCrc = *(uint32_t*)(data + size);
+
+   crc_reset();
+   uint32_t crc = crc_calculate_block((uint32_t*)data, size / 4);
+
+   if (storedCrc == crc)
+   {
+      convert((LEGACY_CANIDMAP*)data, canSendMap, false);
+      convert((LEGACY_CANIDMAP*)(data + sizeof(LEGACY_CANIDMAP) * LEGACY_MAX_MESSAGES), canRecvMap, true);
+
       return 1;
    }
    return 0;

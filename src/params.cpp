@@ -23,32 +23,51 @@
 namespace Param
 {
 
-#define PARAM_ENTRY(category, name, unit, min, max, def, id) { category, #name, unit, FP_FROMFLT(min), FP_FROMFLT(max), FP_FROMFLT(def), id },
-#define VALUE_ENTRY(name, unit, id) { 0, #name, unit, 0, 0, 0, id },
+#define PARAM_ENTRY(category, name, unit, min, max, def, id) { category, #name, unit, FP_FROMFLT(min), FP_FROMFLT(max), FP_FROMFLT(def), id, TYPE_PARAM },
+#define TESTP_ENTRY(category, name, unit, min, max, def, id) { category, #name, unit, FP_FROMFLT(min), FP_FROMFLT(max), FP_FROMFLT(def), id, TYPE_TESTPARAM },
+#define VALUE_ENTRY(name, unit, id) { 0, #name, unit, 0, 0, 0, id, TYPE_SPOTVALUE },
 static const Attributes attribs[] =
 {
     PARAM_LIST
 };
 #undef PARAM_ENTRY
+#undef TESTP_ENTRY
 #undef VALUE_ENTRY
 
 #define PARAM_ENTRY(category, name, unit, min, max, def, id) FP_FROMFLT(def),
+#define TESTP_ENTRY(category, name, unit, min, max, def, id) FP_FROMFLT(def),
 #define VALUE_ENTRY(name, unit, id) 0,
 static s32fp values[] =
 {
     PARAM_LIST
 };
 #undef PARAM_ENTRY
+#undef TESTP_ENTRY
 #undef VALUE_ENTRY
 
-#define PARAM_ENTRY(category, name, unit, min, max, def, id) 0,
-#define VALUE_ENTRY(name, unit, id) 0,
+#define PARAM_ENTRY(category, name, unit, min, max, def, id) FLAG_NONE,
+#define TESTP_ENTRY(category, name, unit, min, max, def, id) FLAG_NONE,
+#define VALUE_ENTRY(name, unit, id) FLAG_NONE,
 static uint8_t flags[] =
 {
     PARAM_LIST
 };
 #undef PARAM_ENTRY
+#undef TESTP_ENTRY
 #undef VALUE_ENTRY
+
+//Duplicate ID check
+#define PARAM_ENTRY(category, name, unit, min, max, def, id) ITEM_##id,
+#define TESTP_ENTRY(category, name, unit, min, max, def, id) ITEM_##id,
+#define VALUE_ENTRY(name, unit, id) ITEM_##id,
+enum _dupes
+{
+    PARAM_LIST
+};
+#undef PARAM_ENTRY
+#undef TESTP_ENTRY
+#undef VALUE_ENTRY
+
 
 /**
 * Set a parameter
@@ -202,15 +221,6 @@ const Attributes *GetAttrib(PARAM_NUM ParamNum)
     return &attribs[ParamNum];
 }
 
-/** Find out if ParamNum is a parameter or display value
- * @retval 1 it is a parameter
- * @retval 0 otherwise
- */
-int IsParam(PARAM_NUM ParamNum)
-{
-   return attribs[ParamNum].min != attribs[ParamNum].max;
-}
-
 /** Load default values for all parameters */
 void LoadDefaults()
 {
@@ -241,6 +251,22 @@ void ClearFlag(PARAM_NUM param, PARAM_FLAG flag)
 PARAM_FLAG GetFlag(PARAM_NUM param)
 {
    return (PARAM_FLAG)flags[param];
+}
+
+PARAM_TYPE GetType(PARAM_NUM param)
+{
+   return (PARAM_TYPE)attribs[param].type;
+}
+
+uint32_t GetIdSum()
+{
+#define PARAM_ENTRY(category, name, unit, min, max, def, id) id +
+#define TESTP_ENTRY(category, name, unit, min, max, def, id) id +
+#define VALUE_ENTRY(name, unit, id) id +
+   return PARAM_LIST 0;
+#undef PARAM_ENTRY
+#undef TESTP_ENTRY
+#undef VALUE_ENTRY
 }
 
 }

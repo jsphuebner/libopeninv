@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "stm32scheduler.h"
+#include <libopencm3/stm32/rcc.h>
 
 /* return CCRc of TIMt */
 #define TIM_CCR(t,c) (*(uint32_t *)(&TIM_CCR1(t) + (c)))
@@ -64,18 +65,23 @@ void Stm32Scheduler::AddTask(void (*function)(void), uint16_t period)
 
 void Stm32Scheduler::Run()
 {
-   for (int i = 0; i < nextTask; i++)
+   for (int i = 0; i < MAX_TASKS; i++)
    {
-      if (timer_get_flag(timer, TIM_SR_CC1IF << i))
+      if (i < nextTask && timer_get_flag(timer, TIM_SR_CC1IF << i))
       {
          uint16_t start = timer_get_counter(timer);
 
          TIM_CCR(timer, i) += periods[i];
          functions[i]();
          execTicks[i] = timer_get_counter(timer) - start;
+         timer_clear_flag(timer, TIM_SR_CC1IF << i);
+      }
+      else if (i >= nextTask)
+      {
+         //Also clear flags of unused channels, they seem to fire the interrupt as well...
+         timer_clear_flag(timer, TIM_SR_CC1IF << i);
       }
    }
-   timer_clear_flag(timer, TIM_SR_CC1IF | TIM_SR_CC2IF | TIM_SR_CC3IF | TIM_SR_CC4IF);
 }
 
 int Stm32Scheduler::GetCpuLoad()

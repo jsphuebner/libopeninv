@@ -270,6 +270,8 @@ void Stm32Can::ConfigureFilters()
    int idIndex = 0, extIdIndex = 0;
    int filterId = canDev == CAN1 ? 0 : ((CAN_FMR(CAN2) >> 8) & 0x3F);
 
+   CAN_FA1R(canDev) = 0; //Disable all filters
+
    for (int i = 0; i < nextUserMessageIndex; i++)
    {
       if (userIds[i] > 0x7ff)
