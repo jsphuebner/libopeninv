@@ -80,7 +80,7 @@ bool CanSdo::HandleRx(uint32_t canId, uint32_t data[2])
       ProcessSDO(data);
       return true;
    }
-   else if (canId == (SDO_REP_ID_BASE + nodeId))
+   else if (canId == (SDO_REP_ID_BASE + remoteNodeId))
    {
       sdoReplyValid = (data[0] & 0xFF) != SDO_ABORT;
       sdoReplyData = data[1];
