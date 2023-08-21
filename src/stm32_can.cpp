@@ -33,6 +33,10 @@
 #define IDS_PER_BANK          4
 #define EXT_IDS_PER_BANK      2
 
+#ifndef CAN_PERIPH_SPEED
+#define CAN_PERIPH_SPEED 36
+#endif // CAN_PERIPH_SPEED
+
 struct CANSPEED
 {
    uint32_t ts1;
@@ -43,17 +47,25 @@ struct CANSPEED
 Stm32Can* Stm32Can::interfaces[MAX_INTERFACES];
 
 static const CANSPEED canSpeed[CanHardware::BaudLast] =
+#if CAN_PERIPH_SPEED == 32
 {
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 16}, //125kbps at 32 MHz
-   //{ CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 18}, //125kbps at 36 Mhz
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 8 }, //250kbps at 32 MHz
-   //{ CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 9 }, //250kbps at 36 MHz
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 4 }, //500kbps at 32 MHz
-   //{ CAN_BTR_TS1_4TQ, CAN_BTR_TS2_3TQ, 9 }, //500kbps at 36 MHz
+   { CAN_BTR_TS1_6TQ, CAN_BTR_TS2_1TQ, 5 }, //800kbps at 36 MHz
+   { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 2 }, //1000kbps at 36 MHz
+};
+#elif CAN_PERIPH_SPEED == 36
+{
+   { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 18}, //125kbps at 36 Mhz
+   { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 9 }, //250kbps at 36 MHz
+   { CAN_BTR_TS1_4TQ, CAN_BTR_TS2_3TQ, 9 }, //500kbps at 36 MHz
    { CAN_BTR_TS1_5TQ, CAN_BTR_TS2_3TQ, 5 }, //800kbps at 36 MHz
    { CAN_BTR_TS1_6TQ, CAN_BTR_TS2_5TQ, 3 }, //1000kbps at 36 MHz
 };
-
+#else
+#error Unhandled CAN peripheral speed, please define prescalers
+#endif
 
 
 /** \brief Init can hardware with given baud rate
