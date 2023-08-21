@@ -37,6 +37,8 @@
 #define SDO_ERR_INVIDX        0x06020000
 #define SDO_ERR_RANGE         0x06090030
 #define SDO_ERR_GENERAL       0x08000000
+#define SDO_REQ_ID_BASE       0x600U
+#define SDO_REP_ID_BASE       0x580U
 
 #define SDO_INDEX_PARAMS      0x2000
 #define SDO_INDEX_PARAM_UID   0x2100
@@ -49,8 +51,14 @@
 #define SDO_CMD_RESET         2
 #define SDO_CMD_DEFAULTS      3
 
+/** \brief
+ *
+ * \param hw CanHardware*
+ * \param cm CanMap*
+ *
+ */
 CanSdo::CanSdo(CanHardware* hw, CanMap* cm)
- : canHardware(hw), canMap(cm), nodeId(1), printRequest(-1), printComplete(true)
+ : canHardware(hw), canMap(cm), nodeId(1), remoteNodeId(255), printRequest(-1), printComplete(true)
 {
    canHardware->AddReceiveCallback(this);
    HandleClear();
@@ -59,36 +67,69 @@ CanSdo::CanSdo(CanHardware* hw, CanMap* cm)
 //Somebody (perhaps us) has cleared all user messages. Register them again
 void CanSdo::HandleClear()
 {
-   canHardware->RegisterUserMessage(0x600 + nodeId);
+   canHardware->RegisterUserMessage(SDO_REQ_ID_BASE + nodeId);
+
+   if (remoteNodeId < 64)
+      canHardware->RegisterUserMessage(SDO_REP_ID_BASE + remoteNodeId);
 }
 
 bool CanSdo::HandleRx(uint32_t canId, uint32_t data[2])
 {
-   if (canId == (0x600U + nodeId)) //SDO request
+   if (canId == (SDO_REQ_ID_BASE + nodeId)) //SDO request
    {
       ProcessSDO(data);
+      return true;
+   }
+   else if (canId == (SDO_REP_ID_BASE + nodeId))
+   {
+      sdoReplyValid = (data[0] & 0xFF) != SDO_ABORT;
+      sdoReplyData = data[1];
       return true;
    }
    return false;
 }
 
-void CanSdo::SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, uint32_t data)
+void CanSdo::SDOWrite(uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data)
 {
-   uint32_t d[2];
-   CAN_SDO *sdo = (CAN_SDO*)d;
+   InitiateSDOTransfer(SDO_WRITE, nodeId, index, subIndex, data);
+}
 
-   sdo->cmd = SDO_WRITE;
-   sdo->index = index;
-   sdo->subIndex = subIndex;
-   sdo->data = data;
+void CanSdo::SDORead(uint8_t nodeId, uint16_t index, uint8_t subIndex)
+{
+   InitiateSDOTransfer(SDO_READ, nodeId, index, subIndex, 0);
+}
 
-   canHardware->Send(0x600 + remoteNodeId, d);
+bool CanSdo::SDOReadReply(uint32_t& data)
+{
+   data = sdoReplyData;
+   return sdoReplyValid;
 }
 
 void CanSdo::SetNodeId(uint8_t id)
 {
    nodeId = id;
    canHardware->ClearUserMessages();
+}
+
+void CanSdo::InitiateSDOTransfer(uint8_t req, uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data)
+{
+   uint32_t d[2];
+   CAN_SDO *sdo = (CAN_SDO*)d;
+
+   sdo->cmd = req;
+   sdo->index = index;
+   sdo->subIndex = subIndex;
+   sdo->data = data;
+
+   if (nodeId != remoteNodeId)
+   {
+      remoteNodeId = nodeId;
+      //This registers the reply message
+      canHardware->ClearUserMessages();
+   }
+
+   sdoReplyValid = false;
+   canHardware->Send(SDO_REQ_ID_BASE + remoteNodeId, d);
 }
 
 //http://www.byteme.org.uk/canopenparent/canopen/sdo-service-data-objects-canopen/
@@ -163,6 +204,12 @@ void CanSdo::ProcessSDO(uint32_t data[2])
             mapBit = (sdo->data >> 16) & 0x3F;
             mapLen = (sdo->data >> 24) & 0x1F;
             result = mapParam < Param::PARAM_LAST ? 0 : -1;
+         }
+         else if (sdo->subIndex == 3)
+         {
+            //Delete an item
+            mapParam = Param::NumFromId(sdo->data & 0xFFFF);
+            result = canMap->Remove(mapParam) - 1; //if no items are removed return error
          }
          else if (mapLen > 0) //This sort of verifies that we received subindex 0
          {

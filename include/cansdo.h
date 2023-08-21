@@ -30,7 +30,9 @@ class CanSdo: CanCallback, public IPutChar
       CanSdo(CanHardware* hw, CanMap* cm = 0);
       void HandleClear();
       bool HandleRx(uint32_t canId, uint32_t data[2]);
-      void SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, uint32_t data);
+      void SDOWrite(uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data);
+      void SDORead(uint8_t nodeId, uint16_t index, uint8_t subIndex);
+      bool SDOReadReply(uint32_t& data);
       void SetNodeId(uint8_t id);
       int GetPrintRequest() { return printRequest; }
       void SignalPrintComplete() { printComplete = true; }
@@ -48,6 +50,7 @@ class CanSdo: CanCallback, public IPutChar
       CanHardware* canHardware;
       CanMap* canMap;
       uint8_t nodeId;
+      uint8_t remoteNodeId;
       int printRequest;
       bool printComplete;
       volatile char printBuffer[7];
@@ -55,9 +58,12 @@ class CanSdo: CanCallback, public IPutChar
       Param::PARAM_NUM mapParam;
       uint8_t mapBit;
       uint8_t mapLen;
+      bool sdoReplyValid;
+      uint32_t sdoReplyData;
 
       void ProcessSDO(uint32_t data[2]);
       void ProcessSpecialSDOObjects(CAN_SDO *sdo);
+      void InitiateSDOTransfer(uint8_t req, uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data);
 };
 
 #endif // CANSDO_H

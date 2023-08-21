@@ -26,7 +26,7 @@
 #endif
 
 #ifndef MAX_RECV_CALLBACKS
-#define MAX_RECV_CALLBACKS 2
+#define MAX_RECV_CALLBACKS 5
 #endif
 
 class CanCallback
