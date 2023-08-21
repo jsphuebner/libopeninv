@@ -19,47 +19,15 @@
 #include <libopencm3/stm32/flash.h>
 #include <libopencm3/stm32/crc.h>
 #include <libopencm3/stm32/desig.h>
-#include <libopencm3/cm3/scb.h>
 #include "canmap.h"
 #include "hwdefs.h"
 #include "my_string.h"
-#include "param_save.h"
 
 #ifdef CAN_EXT
 #define MAX_ID 0x1fffffff
 #else
 #define MAX_ID 0x7FF
 #endif // CAN_EXT
-
-#define SDO_REQUEST_DOWNLOAD  (1 << 5)
-#define SDO_REQUEST_UPLOAD    (2 << 5)
-#define SDO_REQUEST_SEGMENT   (3 << 5)
-#define SDO_TOGGLE_BIT        (1 << 4)
-#define SDO_RESPONSE_UPLOAD   (2 << 5)
-#define SDO_RESPONSE_DOWNLOAD (3 << 5)
-#define SDO_EXPEDITED         (1 << 1)
-#define SDO_SIZE_SPECIFIED    (1)
-#define SDO_WRITE             (SDO_REQUEST_DOWNLOAD | SDO_EXPEDITED | SDO_SIZE_SPECIFIED)
-#define SDO_READ              SDO_REQUEST_UPLOAD
-#define SDO_ABORT             0x80
-#define SDO_WRITE_REPLY       SDO_RESPONSE_DOWNLOAD
-#define SDO_READ_REPLY        (SDO_RESPONSE_UPLOAD | SDO_EXPEDITED | SDO_SIZE_SPECIFIED)
-#define SDO_ERR_INVIDX        0x06020000
-#define SDO_ERR_RANGE         0x06090030
-#define SDO_ERR_GENERAL       0x08000000
-
-#define SDO_INDEX_PARAMS      0x2000
-#define SDO_INDEX_PARAM_UID   0x2100
-#define SDO_INDEX_MAP_START   0x3000
-#define SDO_INDEX_MAP_END     0x4800
-#define SDO_INDEX_MAP_RX      0x4000
-#define SDO_INDEX_SERIAL      0x5000
-#define SDO_INDEX_STRINGS     0x5001
-#define SDO_INDEX_COMMANDS    0x5002
-#define SDO_CMD_SAVE          0
-#define SDO_CMD_LOAD          1
-#define SDO_CMD_RESET         2
-#define SDO_CMD_DEFAULTS      3
 
 #define SENDMAP_ADDRESS(b)    b
 #define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
@@ -82,11 +50,9 @@
 #endif
 
 volatile bool CanMap::isSaving = false;
-volatile char printBuffer[7];
-volatile uint8_t printByte = 0;
 
 CanMap::CanMap(CanHardware* hw)
- : canHardware(hw), nodeId(1), printRequest(-1), printComplete(true)
+ : canHardware(hw)
 {
    canHardware->AddReceiveCallback(this);
 
@@ -99,8 +65,6 @@ CanMap::CanMap(CanHardware* hw)
 //Somebody (perhaps us) has cleared all user messages. Register them again
 void CanMap::HandleClear()
 {
-   canHardware->RegisterUserMessage(0x600 + nodeId);
-
    forEachCanMap(curMap, canRecvMap)
    {
       canHardware->RegisterUserMessage(curMap->canId);
@@ -109,42 +73,35 @@ void CanMap::HandleClear()
 
 bool CanMap::HandleRx(uint32_t canId, uint32_t data[2])
 {
-   if (canId == (0x600U + nodeId)) //SDO request
+   if (isSaving) return false; //Only handle mapped messages when not currently saving to flash
+
+   CANIDMAP *recvMap = FindById(canRecvMap, canId);
+
+   if (0 != recvMap)
    {
-      ProcessSDO(data);
+      forEachPosMap(curPos, recvMap)
+      {
+         float val;
+
+         if (curPos->offsetBits > 31)
+         {
+            val = (data[1] >> (curPos->offsetBits - 32)) & ((1 << curPos->numBits) - 1);
+         }
+         else
+         {
+            val = (data[0] >> curPos->offsetBits) & ((1 << curPos->numBits) - 1);
+         }
+         val += curPos->offset;
+         val *= curPos->gain;
+
+         if (Param::GetType((Param::PARAM_NUM)curPos->mapParam) == Param::TYPE_PARAM || Param::GetType((Param::PARAM_NUM)curPos->mapParam) == Param::TYPE_TESTPARAM)
+            Param::Set((Param::PARAM_NUM)curPos->mapParam, FP_FROMFLT(val));
+         else
+            Param::SetFloat((Param::PARAM_NUM)curPos->mapParam, val);
+      }
       return true;
    }
-   else
-   {
-      if (isSaving) return false; //Only handle mapped messages when not currently saving to flash
 
-      CANIDMAP *recvMap = FindById(canRecvMap, canId);
-
-      if (0 != recvMap)
-      {
-         forEachPosMap(curPos, recvMap)
-         {
-            float val;
-
-            if (curPos->offsetBits > 31)
-            {
-               val = (data[1] >> (curPos->offsetBits - 32)) & ((1 << curPos->numBits) - 1);
-            }
-            else
-            {
-               val = (data[0] >> curPos->offsetBits) & ((1 << curPos->numBits) - 1);
-            }
-            val += curPos->offset;
-            val *= curPos->gain;
-
-            if (Param::GetType((Param::PARAM_NUM)curPos->mapParam) == Param::TYPE_PARAM || Param::GetType((Param::PARAM_NUM)curPos->mapParam) == Param::TYPE_TESTPARAM)
-               Param::Set((Param::PARAM_NUM)curPos->mapParam, FP_FROMFLT(val));
-            else
-               Param::SetFloat((Param::PARAM_NUM)curPos->mapParam, val);
-         }
-         return true;
-      }
-   }
    return false;
 }
 
@@ -188,25 +145,6 @@ void CanMap::SendAll()
 
       canHardware->Send(curMap->canId, data);
    }
-}
-
-void CanMap::SDOWrite(uint8_t remoteNodeId, uint16_t index, uint8_t subIndex, uint32_t data)
-{
-   uint32_t d[2];
-   CAN_SDO *sdo = (CAN_SDO*)d;
-
-   sdo->cmd = SDO_WRITE;
-   sdo->index = index;
-   sdo->subIndex = subIndex;
-   sdo->data = data;
-
-   canHardware->Send(0x600 + remoteNodeId, d);
-}
-
-void CanMap::SetNodeId(uint8_t id)
-{
-   nodeId = id;
-   HandleClear();
 }
 
 /** \brief Add periodic CAN message
@@ -374,171 +312,6 @@ void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t,
 
 /****************** Private methods and ISRs ********************/
 
-//http://www.byteme.org.uk/canopenparent/canopen/sdo-service-data-objects-canopen/
-void CanMap::ProcessSDO(uint32_t data[2])
-{
-   CAN_SDO *sdo = (CAN_SDO*)data;
-
-   if ((sdo->cmd & SDO_REQUEST_SEGMENT) == SDO_REQUEST_SEGMENT)
-   {
-      sdo->cmd = sdo->cmd & SDO_TOGGLE_BIT;
-      sdo->index = printBuffer[0] | (printBuffer[1] << 8);
-      sdo->subIndex = printBuffer[2];
-      sdo->data = *(uint32_t*)&printBuffer[3];
-
-      if (printComplete)
-      {
-         sdo->cmd |= SDO_SIZE_SPECIFIED;
-         sdo->cmd |= (7 - printByte) << 1; //specify how many bytes do NOT contain data
-      }
-
-      //Clear buffer
-      for (uint32_t i = 0; i < sizeof(printBuffer); i++)
-         printBuffer[i] = 0;
-
-      printByte = 0; //reset buffer index to allow printing
-   }
-   else if (sdo->index == SDO_INDEX_PARAMS || (sdo->index & 0xFF00) == SDO_INDEX_PARAM_UID)
-   {
-      Param::PARAM_NUM paramIdx = (Param::PARAM_NUM)sdo->subIndex;
-
-      //SDO index 0x21xx will look up the parameter by its unique ID
-      //using subIndex as low byte and xx as high byte of ID
-      if ((sdo->index & 0xFF00) == SDO_INDEX_PARAM_UID)
-         paramIdx = Param::NumFromId(sdo->subIndex + ((sdo->index & 0xFF) << 8));
-
-      if (paramIdx < Param::PARAM_LAST)
-      {
-         if (sdo->cmd == SDO_WRITE)
-         {
-            if (Param::Set(paramIdx, sdo->data) == 0)
-            {
-               sdo->cmd = SDO_WRITE_REPLY;
-            }
-            else
-            {
-               sdo->cmd = SDO_ABORT;
-               sdo->data = SDO_ERR_RANGE;
-            }
-         }
-         else if (sdo->cmd == SDO_READ)
-         {
-            sdo->data = Param::Get(paramIdx);
-            sdo->cmd = SDO_READ_REPLY;
-         }
-      }
-      else
-      {
-         sdo->cmd = SDO_ABORT;
-         sdo->data = SDO_ERR_INVIDX;
-      }
-   }
-   else if (sdo->index >= SDO_INDEX_MAP_START && sdo->index < SDO_INDEX_MAP_END && sdo->subIndex < Param::PARAM_LAST)
-   {
-      if (sdo->cmd == SDO_WRITE)
-      {
-         int result;
-         int offset = sdo->data & 0xFF;
-         int len = (sdo->data >> 8) & 0xFF;
-         s32fp gain = sdo->data >> 16;
-
-         if ((sdo->index & SDO_INDEX_MAP_RX) == SDO_INDEX_MAP_RX)
-         {
-            result = AddRecv((Param::PARAM_NUM)sdo->subIndex, sdo->index & 0x7FF, offset, len, gain);
-         }
-         else
-         {
-            result = AddSend((Param::PARAM_NUM)sdo->subIndex, sdo->index & 0x7FF, offset, len, gain);
-         }
-
-         if (result >= 0)
-         {
-            sdo->cmd = SDO_WRITE_REPLY;
-         }
-         else
-         {
-            sdo->cmd = SDO_ABORT;
-            sdo->data = SDO_ERR_RANGE;
-         }
-      }
-   }
-   else
-   {
-      ProcessSpecialSDOObjects(sdo);
-   }
-   canHardware->Send(0x580 + nodeId, data);
-}
-
-void CanMap::PutChar(char c)
-{
-   //When print buffer is full, wait
-   while (printByte >= sizeof(printBuffer));
-   printBuffer[printByte++] = c;
-   printRequest = -1; //We can clear the print start trigger as we've obviously started printing
-}
-
-void CanMap::ProcessSpecialSDOObjects(CAN_SDO* sdo)
-{
-   if (sdo->index == SDO_INDEX_SERIAL && sdo->cmd == SDO_READ)
-   {
-      sdo->cmd = SDO_READ_REPLY;
-      switch (sdo->subIndex)
-      {
-      case 0:
-         sdo->data = DESIG_UNIQUE_ID0;
-         break;
-      case 1:
-         sdo->data = DESIG_UNIQUE_ID1;
-         break;
-      case 2:
-         sdo->data = DESIG_UNIQUE_ID2;
-         break;
-      case 3:
-         sdo->data = Param::GetIdSum();
-         break;
-      default:
-         sdo->cmd = SDO_ABORT;
-         sdo->data = SDO_ERR_INVIDX;
-      }
-   }
-   else if (sdo->index == SDO_INDEX_STRINGS)
-   {
-      if (sdo->cmd == SDO_READ)
-      {
-         sdo->data = 65535; //this should be the size of JSON but we don't know this in advance. Hmm.
-         sdo->cmd = SDO_RESPONSE_UPLOAD | SDO_SIZE_SPECIFIED;
-         printByte = 0; //reset buffer index to allow printing
-         printComplete = false;
-         printRequest = sdo->subIndex;
-      }
-   }
-   else if (sdo->index == SDO_INDEX_COMMANDS && sdo->cmd == SDO_WRITE)
-   {
-      sdo->cmd = SDO_WRITE_REPLY;
-
-      switch (sdo->subIndex)
-      {
-      case SDO_CMD_SAVE:
-         Save();
-         parm_save();
-         break;
-      case SDO_CMD_LOAD:
-         parm_load();
-         Param::Change(Param::PARAM_LAST);
-         break;
-      case SDO_CMD_RESET:
-         scb_reset_system();
-         break;
-      case SDO_CMD_DEFAULTS:
-         Param::LoadDefaults();
-         Param::Change(Param::PARAM_LAST);
-         break;
-      default:
-         sdo->cmd = SDO_ABORT;
-         sdo->data = SDO_ERR_INVIDX;
-      }
-   }
-}
 
 void CanMap::ClearMap(CANIDMAP *canMap)
 {
