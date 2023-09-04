@@ -20,6 +20,7 @@
 #include <libopencm3/cm3/scb.h>
 #include "cansdo.h"
 #include "param_save.h"
+#include "my_math.h"
 
 #define SDO_REQUEST_DOWNLOAD  (1 << 5)
 #define SDO_REQUEST_UPLOAD    (2 << 5)
@@ -42,7 +43,9 @@
 
 #define SDO_INDEX_PARAMS      0x2000
 #define SDO_INDEX_PARAM_UID   0x2100
-#define SDO_INDEX_MAP         0x3000
+#define SDO_INDEX_MAP_TX      0x3000
+#define SDO_INDEX_MAP_RX      0x3001
+#define SDO_INDEX_MAP_RD      0x3100
 #define SDO_INDEX_SERIAL      0x5000
 #define SDO_INDEX_STRINGS     0x5001
 #define SDO_INDEX_COMMANDS    0x5002
@@ -60,7 +63,7 @@
 CanSdo::CanSdo(CanHardware* hw, CanMap* cm)
  : canHardware(hw), canMap(cm), nodeId(1), remoteNodeId(255), printRequest(-1), printComplete(true)
 {
-   canHardware->AddReceiveCallback(this);
+   canHardware->AddCallback(this);
    HandleClear();
 }
 
@@ -191,53 +194,17 @@ void CanSdo::ProcessSDO(uint32_t data[2])
          sdo->data = SDO_ERR_INVIDX;
       }
    }
-   else if (0 != canMap && (sdo->index & 0xF000) == SDO_INDEX_MAP)
+   else if (0 != canMap && sdo->index == SDO_INDEX_MAP_TX)
    {
-      if (sdo->cmd == SDO_WRITE)
-      {
-         int result;
-
-         if (sdo->subIndex == 0)
-         {
-            //Now we receive UID of value to be mapped along with bit start and length
-            mapParam = Param::NumFromId(sdo->data & 0xFFFF);
-            mapBit = (sdo->data >> 16) & 0x3F;
-            mapLen = (sdo->data >> 24) & 0x1F;
-            result = mapParam < Param::PARAM_LAST ? 0 : -1;
-         }
-         else if (sdo->subIndex == 3)
-         {
-            //Delete an item
-            mapParam = Param::NumFromId(sdo->data & 0xFFFF);
-            result = canMap->Remove(mapParam) - 1; //if no items are removed return error
-         }
-         else if (mapLen > 0) //This sort of verifies that we received subindex 0
-         {
-            //Now we receive gain and offset and add the map
-            float gain = (sdo->data & 0xFFFFFF) / 1000.0f;
-            int8_t offset = sdo->data >> 24;
-            uint16_t id = sdo->index & 0x7FF;
-
-            if (sdo->subIndex == 1) //TX map
-               result = canMap->AddSend(mapParam, id, mapBit, mapLen, gain, offset);
-            else if (sdo->subIndex == 2) //RX map
-               result = canMap->AddRecv(mapParam, id, mapBit, mapLen, gain, offset);
-            else
-               result = -1;
-
-            mapLen = 0;
-         }
-
-         if (result >= 0)
-         {
-            sdo->cmd = SDO_WRITE_REPLY;
-         }
-         else
-         {
-            sdo->cmd = SDO_ABORT;
-            sdo->data = SDO_ERR_RANGE;
-         }
-      }
+      AddCanMap(sdo, false);
+   }
+   else if (0 != canMap && sdo->index == SDO_INDEX_MAP_RX)
+   {
+      AddCanMap(sdo, true);
+   }
+   else if (0 != canMap && (sdo->index & 0xFF00) == SDO_INDEX_MAP_RD)
+   {
+      ReadOrDeleteCanMap(sdo);
    }
    else
    {
@@ -311,6 +278,102 @@ void CanSdo::ProcessSpecialSDOObjects(CAN_SDO* sdo)
          Param::Change(Param::PARAM_LAST);
          break;
       default:
+         sdo->cmd = SDO_ABORT;
+         sdo->data = SDO_ERR_INVIDX;
+      }
+   }
+   else
+   {
+      sdo->cmd = SDO_ABORT;
+      sdo->data = SDO_ERR_INVIDX;
+   }
+}
+
+void CanSdo::ReadOrDeleteCanMap(CAN_SDO* sdo)
+{
+   bool rx = (sdo->index & 0x80) != 0;
+   uint32_t canId;
+   uint8_t itemIdx = MAX(0, sdo->subIndex - 1) / 2;
+   const CanMap::CANPOS* canPos = canMap->GetMap(rx, sdo->index & 0x3f, itemIdx, canId);
+
+   if (sdo->cmd == SDO_READ)
+   {
+      if (canPos != 0)
+      {
+         uint16_t id = Param::GetAttrib((Param::PARAM_NUM)canPos->mapParam)->id;
+
+         if (sdo->subIndex == 0) //0 contains COB Id
+            sdo->data = canId;
+         else if (sdo->subIndex & 1) //odd sub indexes have data id, position and length
+            sdo->data = id | (canPos->offsetBits << 16) | (canPos->numBits << 24);
+         else //even sub indexes except 0 have gain and offset
+            sdo->data = (((uint32_t)(canPos->gain * 1000)) & 0xFFFFFF) | (canPos->offset << 24);
+         sdo->cmd = SDO_READ_REPLY;
+      }
+      else
+      {
+         sdo->cmd = SDO_ABORT;
+         sdo->data = SDO_ERR_INVIDX;
+      }
+   }
+   else if (sdo->cmd == SDO_WRITE && canPos != 0 && sdo->data == 0)
+   {
+      canMap->Remove(rx, sdo->index & 0x3f, itemIdx);
+   }
+   else
+   {
+      sdo->cmd = SDO_ABORT;
+      sdo->data = SDO_ERR_INVIDX;
+   }
+}
+
+void CanSdo::AddCanMap(CAN_SDO* sdo, bool rx)
+{
+   if (sdo->cmd == SDO_WRITE)
+   {
+      int result = -1;
+
+      if (sdo->subIndex == 0)
+      {
+         if (sdo->data <= MAX_COB_ID)
+         {
+            mapId = sdo->data;
+            result = 0;
+         }
+         else
+         {
+            mapId = 0xFFFFFFFF;
+         }
+      }
+      else if (mapId != 0xFFFFFFFF && sdo->subIndex == 1)
+      {
+         //Now we receive UID of value to be mapped along with bit start and length
+         mapInfo.mapParam = Param::NumFromId(sdo->data & 0xFFFF);
+         mapInfo.offsetBits = (sdo->data >> 16) & 0x3F;
+         mapInfo.numBits = (sdo->data >> 24) & 0x1F;
+         result = mapInfo.mapParam < Param::PARAM_LAST ? 0 : -1;
+      }
+      else if (mapInfo.numBits > 0 && sdo->subIndex == 2) //This sort of verifies that we received subindex 1
+      {
+         //Now we receive gain and offset and add the map
+         mapInfo.gain = (sdo->data & 0xFFFFFF) / 1000.0f;
+         mapInfo.offset = sdo->data >> 24;
+
+         if (rx) //RX map
+            result = canMap->AddRecv((Param::PARAM_NUM)mapInfo.mapParam, mapId, mapInfo.offsetBits, mapInfo.numBits, mapInfo.gain, mapInfo.offset);
+         else
+            result = canMap->AddSend((Param::PARAM_NUM)mapInfo.mapParam, mapId, mapInfo.offsetBits, mapInfo.numBits, mapInfo.gain, mapInfo.offset);
+
+         mapInfo.numBits = 0;
+         mapId = 0xFFFFFFFF;
+      }
+
+      if (result >= 0)
+      {
+         sdo->cmd = SDO_WRITE_REPLY;
+      }
+      else
+      {
          sdo->cmd = SDO_ABORT;
          sdo->data = SDO_ERR_INVIDX;
       }

@@ -35,10 +35,25 @@
 #define MAX_MESSAGES 10
 #endif
 
+#ifdef CAN_EXT
+#define MAX_COB_ID 0x1fffffff
+#else
+#define MAX_COB_ID 0x7FF
+#endif // CAN_EXT
+
 class CanMap: CanCallback
 {
    public:
-      /** Default constructor */
+      struct CANPOS
+      {
+         float gain;
+         uint16_t mapParam;
+         int8_t offset;
+         uint8_t offsetBits;
+         uint8_t numBits;
+         uint8_t next;
+      };
+
       CanMap(CanHardware* hw);
       CanHardware* GetHardware() { return canHardware; }
       void HandleClear();
@@ -50,24 +65,16 @@ class CanMap: CanCallback
       int AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset);
       int AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset);
       int Remove(Param::PARAM_NUM param);
+      int Remove(bool rx, uint8_t ididx, uint8_t itemidx);
       void Save();
       bool FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& start, uint8_t& length, float& gain, int8_t& offset, bool& rx);
+      const CANPOS* GetMap(bool rx, uint8_t ididx, uint8_t itemidx, uint32_t& canId);
       void IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, int8_t, bool));
 
    protected:
 
    private:
       static volatile bool isSaving;
-
-      struct CANPOS
-      {
-         float gain;
-         uint16_t mapParam;
-         int8_t offset;
-         uint8_t offsetBits;
-         uint8_t numBits;
-         uint8_t next;
-      };
 
       struct CANIDMAP
       {

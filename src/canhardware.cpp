@@ -41,7 +41,7 @@ CanHardware::CanHardware()
  *
  * \param recv CanCallback interface
  */
-bool CanHardware::AddReceiveCallback(CanCallback* recv)
+bool CanHardware::AddCallback(CanCallback* recv)
 {
    if (nextCallbackIndex < MAX_RECV_CALLBACKS)
    {

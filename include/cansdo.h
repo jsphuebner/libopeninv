@@ -56,13 +56,15 @@ class CanSdo: CanCallback, public IPutChar
       volatile char printBuffer[7];
       volatile uint8_t printByte = 0;
       Param::PARAM_NUM mapParam;
-      uint8_t mapBit;
-      uint8_t mapLen;
+      uint32_t mapId;
+      CanMap::CANPOS mapInfo;
       bool sdoReplyValid;
       uint32_t sdoReplyData;
 
       void ProcessSDO(uint32_t data[2]);
       void ProcessSpecialSDOObjects(CAN_SDO *sdo);
+      void ReadOrDeleteCanMap(CAN_SDO *sdo);
+      void AddCanMap(CAN_SDO *sdo, bool rx);
       void InitiateSDOTransfer(uint8_t req, uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data);
 };
 

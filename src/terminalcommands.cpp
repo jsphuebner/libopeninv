@@ -28,6 +28,13 @@
 #include "canmap.h"
 #include "terminalcommands.h"
 
+//Some functions use the "register" keyword which C++ doesn't like
+//We can safely ignore that as we don't even use those functions
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wregister"
+#include <libopencm3/cm3/cortex.h>
+#pragma GCC diagnostic pop
+
 static Terminal* curTerm = NULL;
 
 CanMap* TerminalCommands::canMap;
@@ -403,16 +410,23 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
 void TerminalCommands::SaveParameters(Terminal* term, char *arg)
 {
    arg = arg;
+   cm_disable_interrupts();
    canMap->Save();
    fprintf(term, "CANMAP stored\r\n");
    uint32_t crc = parm_save();
+   cm_enable_interrupts();
    fprintf(term, "Parameters stored, CRC=%x\r\n", crc);
 }
 
 void TerminalCommands::LoadParameters(Terminal* term, char *arg)
 {
    arg = arg;
-   if (0 == parm_load())
+
+   cm_disable_interrupts();
+   int res = parm_load();
+   cm_enable_interrupts();
+
+   if (0 == res)
    {
       Param::Change(Param::PARAM_LAST);
       fprintf(term, "Parameters loaded\r\n");

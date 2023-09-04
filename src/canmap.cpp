@@ -23,12 +23,6 @@
 #include "hwdefs.h"
 #include "my_string.h"
 
-#ifdef CAN_EXT
-#define MAX_ID 0x1fffffff
-#else
-#define MAX_ID 0x7FF
-#endif // CAN_EXT
-
 #define SENDMAP_ADDRESS(b)    b
 #define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
 #define POSMAP_ADDRESS(b)     (b + sizeof(canSendMap) + sizeof(canRecvMap))
@@ -54,7 +48,7 @@ volatile bool CanMap::isSaving = false;
 CanMap::CanMap(CanHardware* hw)
  : canHardware(hw)
 {
-   canHardware->AddReceiveCallback(this);
+   canHardware->AddCallback(this);
 
    ClearMap(canSendMap);
    ClearMap(canRecvMap);
@@ -213,6 +207,35 @@ int CanMap::Remove(Param::PARAM_NUM param)
    return removed;
 }
 
+int CanMap::Remove(bool rx, uint8_t ididx, uint8_t itemidx)
+{
+   CANPOS *lastPosMap = 0;
+   CANIDMAP *map = rx ? &canRecvMap[ididx] : &canSendMap[ididx];
+
+   if (ididx > MAX_MESSAGES || map->first == MAX_ITEMS) return 0;
+
+   forEachPosMap(curPos, map)
+   {
+      if (itemidx == 0)
+      {
+         if (lastPosMap != 0)
+         {
+            lastPosMap->next = curPos->next;
+         }
+         else
+         {
+            //If curPos was the last mapped item, then next is ITEM_UNSET
+            //Now first will become ITEM_UNSET marking the entry as unused
+            map->first = curPos->next;
+         }
+         return 1;
+      }
+      itemidx--;
+      lastPosMap = curPos;
+   }
+   return 0;
+}
+
 /** \brief Save CAN mapping to flash
  */
 void CanMap::Save()
@@ -292,6 +315,24 @@ bool CanMap::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& start, ui
    return false;
 }
 
+const CanMap::CANPOS* CanMap::GetMap(bool rx, uint8_t ididx, uint8_t itemidx, uint32_t& canId)
+{
+   CANIDMAP *map = rx ? &canRecvMap[ididx] : &canSendMap[ididx];
+
+   if (ididx > MAX_MESSAGES || map->first == MAX_ITEMS) return 0;
+
+   forEachPosMap(curPos, map)
+   {
+      if (itemidx == 0)
+      {
+         canId = map->canId;
+         return curPos;
+      }
+      itemidx--;
+   }
+   return 0;
+}
+
 void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, int8_t, bool))
 {
    bool done = false, rx = false;
@@ -327,14 +368,18 @@ void CanMap::ClearMap(CANIDMAP *canMap)
    }
 }
 
+/** \brief Remove the first occurrence of an item from can map
+ *
+ * \param canMap CANIDMAP*
+ * \param param Param::PARAM_NUM
+ * \return 0 or 1 item removed
+ *
+ */
 int CanMap::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
 {
-   int removed = 0;
-   CANPOS *lastPosMap;
-
    forEachCanMap(curMap, canMap)
    {
-      lastPosMap = 0;
+      CANPOS *lastPosMap = 0;
 
       forEachPosMap(curPos, curMap)
       {
@@ -346,19 +391,22 @@ int CanMap::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
             }
             else
             {
+               //If curPos was the last mapped item, then next is ITEM_UNSET
+               //Now first will become ITEM_UNSET marking the entry as unused
                curMap->first = curPos->next;
             }
+            return 1;
          }
          lastPosMap = curPos;
       }
    }
 
-   return removed;
+   return 0;
 }
 
 int CanMap::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset)
 {
-   if (canId > MAX_ID) return CAN_ERR_INVALID_ID;
+   if (canId > MAX_COB_ID) return CAN_ERR_INVALID_ID;
    if (offsetBits > 63) return CAN_ERR_INVALID_OFS;
    if (length > 32) return CAN_ERR_INVALID_LEN;
 
