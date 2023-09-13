@@ -38,6 +38,7 @@
 static Terminal* curTerm = NULL;
 
 CanMap* TerminalCommands::canMap;
+bool TerminalCommands::saveEnabled = true;
 
 void TerminalCommands::ParamSet(Terminal* term, char* arg)
 {
@@ -410,12 +411,20 @@ void TerminalCommands::MapCan(Terminal* term, char *arg)
 void TerminalCommands::SaveParameters(Terminal* term, char *arg)
 {
    arg = arg;
-   cm_disable_interrupts();
-   canMap->Save();
-   fprintf(term, "CANMAP stored\r\n");
-   uint32_t crc = parm_save();
-   cm_enable_interrupts();
-   fprintf(term, "Parameters stored, CRC=%x\r\n", crc);
+
+   if (saveEnabled)
+   {
+      cm_disable_interrupts();
+      canMap->Save();
+      fprintf(term, "CANMAP stored\r\n");
+      uint32_t crc = parm_save();
+      cm_enable_interrupts();
+      fprintf(term, "Parameters stored, CRC=%x\r\n", crc);
+   }
+   else
+   {
+      fprintf(term, "Will not write to flash in run modes, please stop before saving!\r\n");
+   }
 }
 
 void TerminalCommands::LoadParameters(Terminal* term, char *arg)

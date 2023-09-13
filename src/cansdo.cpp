@@ -22,6 +22,13 @@
 #include "param_save.h"
 #include "my_math.h"
 
+//Some functions use the "register" keyword which C++ doesn't like
+//We can safely ignore that as we don't even use those functions
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wregister"
+#include <libopencm3/cm3/cortex.h>
+#pragma GCC diagnostic pop
+
 #define SDO_REQUEST_DOWNLOAD  (1 << 5)
 #define SDO_REQUEST_UPLOAD    (2 << 5)
 #define SDO_REQUEST_SEGMENT   (3 << 5)
@@ -54,6 +61,10 @@
 #define SDO_CMD_RESET         2
 #define SDO_CMD_DEFAULTS      3
 
+#define PRINT_BUF_ENQUEUE(c)  printBuffer[(printByteIn++) & (sizeof(printBuffer) - 1)] = c
+#define PRINT_BUF_DEQUEUE()   printBuffer[(printByteOut++) & (sizeof(printBuffer) - 1)]
+#define PRINT_BUF_EMPTY()     ((printByteOut - printByteIn) == sizeof(printBuffer))
+
 /** \brief
  *
  * \param hw CanHardware*
@@ -61,7 +72,7 @@
  *
  */
 CanSdo::CanSdo(CanHardware* hw, CanMap* cm)
- : canHardware(hw), canMap(cm), nodeId(1), remoteNodeId(255), printRequest(-1), printComplete(true)
+ : canHardware(hw), canMap(cm), nodeId(1), remoteNodeId(255), printRequest(-1), saveEnabled(true)
 {
    canHardware->AddCallback(this);
    HandleClear();
@@ -142,22 +153,20 @@ void CanSdo::ProcessSDO(uint32_t data[2])
 
    if ((sdo->cmd & SDO_REQUEST_SEGMENT) == SDO_REQUEST_SEGMENT)
    {
-      sdo->cmd = sdo->cmd & SDO_TOGGLE_BIT;
-      sdo->index = printBuffer[0] | (printBuffer[1] << 8);
-      sdo->subIndex = printBuffer[2];
-      sdo->data = *(uint32_t*)&printBuffer[3];
+      const int bytesPerMessage = 7;
+      uint8_t *bytes = (uint8_t*)data;
+      int i = 1;
 
-      if (printComplete)
+      sdo->cmd = sdo->cmd & SDO_TOGGLE_BIT;
+
+      for (; i <= bytesPerMessage && !PRINT_BUF_EMPTY(); i++)
+         bytes[i] = PRINT_BUF_DEQUEUE();
+
+      if (PRINT_BUF_EMPTY())
       {
          sdo->cmd |= SDO_SIZE_SPECIFIED;
-         sdo->cmd |= (7 - printByte) << 1; //specify how many bytes do NOT contain data
+         sdo->cmd |= (bytesPerMessage - i + 1) << 1; //specify how many bytes do NOT contain data
       }
-
-      //Clear buffer
-      for (uint32_t i = 0; i < sizeof(printBuffer); i++)
-         printBuffer[i] = 0;
-
-      printByte = 0; //reset buffer index to allow printing
    }
    else if (sdo->index == SDO_INDEX_PARAMS || (sdo->index & 0xFF00) == SDO_INDEX_PARAM_UID)
    {
@@ -216,8 +225,9 @@ void CanSdo::ProcessSDO(uint32_t data[2])
 void CanSdo::PutChar(char c)
 {
    //When print buffer is full, wait
-   while (printByte >= sizeof(printBuffer));
-   printBuffer[printByte++] = c;
+   while (printByteIn == printByteOut);
+
+   PRINT_BUF_ENQUEUE(c);
    printRequest = -1; //We can clear the print start trigger as we've obviously started printing
 }
 
@@ -251,8 +261,8 @@ void CanSdo::ProcessSpecialSDOObjects(CAN_SDO* sdo)
       {
          sdo->data = 65535; //this should be the size of JSON but we don't know this in advance. Hmm.
          sdo->cmd = SDO_RESPONSE_UPLOAD | SDO_SIZE_SPECIFIED;
-         printByte = 0; //reset buffer index to allow printing
-         printComplete = false;
+         printByteIn = 0;
+         printByteOut = sizeof(printBuffer); //both point to the beginning of the physical buffer but virtually they are 64 bytes apart
          printRequest = sdo->subIndex;
       }
    }
@@ -263,11 +273,24 @@ void CanSdo::ProcessSpecialSDOObjects(CAN_SDO* sdo)
       switch (sdo->subIndex)
       {
       case SDO_CMD_SAVE:
-         if (0 != canMap) canMap->Save();
-         parm_save();
+         if (saveEnabled)
+         {
+            cm_disable_interrupts();
+            if (0 != canMap) canMap->Save();
+            parm_save();
+            cm_enable_interrupts();
+         }
+         else
+         {
+            sdo->cmd = SDO_ABORT;
+            sdo->data = SDO_ERR_GENERAL;
+         }
          break;
       case SDO_CMD_LOAD:
+         //We disable interrupts to prevent concurrent access of the CRC unit
+         cm_disable_interrupts();
          parm_load();
+         cm_enable_interrupts();
          Param::Change(Param::PARAM_LAST);
          break;
       case SDO_CMD_RESET:

@@ -35,8 +35,9 @@ class CanSdo: CanCallback, public IPutChar
       bool SDOReadReply(uint32_t& data);
       void SetNodeId(uint8_t id);
       int GetPrintRequest() { return printRequest; }
-      void SignalPrintComplete() { printComplete = true; }
       void PutChar(char c);
+      void EnableSaving() { saveEnabled = true; }
+      void DisableSaving() { saveEnabled = false; }
 
    private:
       struct CAN_SDO
@@ -52,14 +53,18 @@ class CanSdo: CanCallback, public IPutChar
       uint8_t nodeId;
       uint8_t remoteNodeId;
       int printRequest;
-      bool printComplete;
-      volatile char printBuffer[7];
-      volatile uint8_t printByte = 0;
+      //We use a ringbuffer with non-wrapping index. This limits us to 4 GB, huh!
+      //In the beginning printBufIn starts at 0 and printBufOut at sizeof(printBuffer) (e.g. 64)
+      //All adressing of printBuffer is modulo buffer size
+      volatile char printBuffer[64];
+      volatile uint32_t printByteIn;
+      volatile uint32_t printByteOut;
       Param::PARAM_NUM mapParam;
       uint32_t mapId;
       CanMap::CANPOS mapInfo;
       bool sdoReplyValid;
       uint32_t sdoReplyData;
+      bool saveEnabled;
 
       void ProcessSDO(uint32_t data[2]);
       void ProcessSpecialSDOObjects(CAN_SDO *sdo);

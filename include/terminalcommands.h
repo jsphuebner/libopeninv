@@ -35,6 +35,8 @@ class TerminalCommands
       static void LoadParameters(Terminal* term, char *arg);
       static void Reset(Terminal* term, char *arg);
       static void SetCanMap(CanMap* m) { canMap = m; }
+      static void EnableSaving() { saveEnabled = true; }
+      static void DisableSaving() { saveEnabled = false; }
 
    protected:
 
@@ -42,6 +44,7 @@ class TerminalCommands
       static void PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8_t offsetBits, uint8_t length, float gain, int8_t offset, bool rx);
       static int ParamNamesToIndexes(char* names, Param::PARAM_NUM* indexes, uint32_t maxIndexes);
       static CanMap* canMap;
+      static bool saveEnabled;
 };
 
 #endif // TERMINALCOMMANDS_H
