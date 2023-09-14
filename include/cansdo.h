@@ -53,10 +53,10 @@ class CanSdo: CanCallback, public IPutChar
       uint8_t nodeId;
       uint8_t remoteNodeId;
       int printRequest;
-      //We use a ringbuffer with non-wrapping index. This limits us to 4 GB, huh!
+      //We use a ring buffer with non-wrapping index. This limits us to 4 GB, huh!
       //In the beginning printBufIn starts at 0 and printBufOut at sizeof(printBuffer) (e.g. 64)
-      //All adressing of printBuffer is modulo buffer size
-      volatile char printBuffer[64];
+      //All addressing of printBuffer is modulo buffer size
+      volatile char printBuffer[64]; //Must be a power of 2 for efficient modulo calculation
       volatile uint32_t printByteIn;
       volatile uint32_t printByteOut;
       Param::PARAM_NUM mapParam;
