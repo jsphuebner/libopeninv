@@ -60,6 +60,10 @@ void DigIo::Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode)
          cnf = GPIO_CNF_OUTPUT_OPENDRAIN;
          val = DIG_IO_ON;
          break;
+      case PinMode::OUTPUT_ALT:
+         mode = GPIO_MODE_OUTPUT_50_MHZ;
+         cnf = GPIO_CNF_OUTPUT_ALTFN_PUSHPULL;
+         break;
    }
 
    if (DIG_IO_ON == val)
