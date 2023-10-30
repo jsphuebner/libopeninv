@@ -33,8 +33,8 @@
 #define OBD2_MODE3_RESPONSE      0x43
 #define OBD2_MODE4_RESPONSE      0x44
 #define OBD2_MODE42_RESPONSE     0x6A
-#define OBD2_PID_REQUEST         0x7DF
-#define OBD2_PID_REPLY           0x7E8
+#define OBD2_PID_REQUEST         0x7DFU
+#define OBD2_PID_REPLY           0x7E8U
 
 /** \brief
  *
@@ -56,7 +56,7 @@ void CanObd2::HandleClear()
    canHardware->RegisterUserMessage(OBD2_PID_REQUEST + nodeId); // ECU specific address
 }
 
-bool CanObd2::HandleRx(uint32_t canId, uint32_t data[2])
+bool CanObd2::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
    if ((canId == OBD2_PID_REQUEST) || (canId == (OBD2_PID_REQUEST + nodeId))) //OBD2 request
    {

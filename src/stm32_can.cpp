@@ -227,7 +227,7 @@ void Stm32Can::HandleMessage(int fifo)
 
    while (can_receive(canDev, fifo, true, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, 0) > 0)
    {
-      HandleRx(id, data);
+      HandleRx(id, data, length);
       lastRxTimestamp = rtc_get_counter_val();
    }
 }

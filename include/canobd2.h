@@ -27,7 +27,7 @@ class CanObd2: CanCallback
       /** Default constructor */
       CanObd2(CanHardware* hw);
       void HandleClear();
-      bool HandleRx(uint32_t canId, uint32_t data[2]);
+      bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       void SetNodeId(uint8_t id);
 
    private:

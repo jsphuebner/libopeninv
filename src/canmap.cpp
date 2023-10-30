@@ -65,7 +65,7 @@ void CanMap::HandleClear()
    }
 }
 
-bool CanMap::HandleRx(uint32_t canId, uint32_t data[2])
+bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
    if (isSaving) return false; //Only handle mapped messages when not currently saving to flash
 

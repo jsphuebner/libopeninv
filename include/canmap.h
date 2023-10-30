@@ -57,7 +57,7 @@ class CanMap: CanCallback
       CanMap(CanHardware* hw);
       CanHardware* GetHardware() { return canHardware; }
       void HandleClear();
-      bool HandleRx(uint32_t canId, uint32_t data[2]);
+      bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       void Clear();
       void SendAll();
       int AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain);

@@ -32,19 +32,19 @@
 class CanCallback
 {
 public:
-   virtual bool HandleRx(uint32_t canId, uint32_t data[2]) = 0;
+   virtual bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) = 0;
    virtual void HandleClear() = 0;
 };
 
 class FunctionPointerCallback: public CanCallback
 {
 public:
-   FunctionPointerCallback(bool (*r)(uint32_t, uint32_t*), void (*c)()) : recv(r), clear(c) { };
-   bool HandleRx(uint32_t canId, uint32_t data[2]) { return recv(canId, data); }
+   FunctionPointerCallback(bool (*r)(uint32_t, uint32_t*, uint8_t), void (*c)()) : recv(r), clear(c) { };
+   bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) { return recv(canId, data, dlc); }
    void HandleClear() { clear(); }
 
 private:
-   bool (*recv)(uint32_t, uint32_t*);
+   bool (*recv)(uint32_t, uint32_t*, uint8_t);
    void (*clear)();
 };
 
@@ -61,7 +61,7 @@ class CanHardware
       void Send(uint32_t canId, uint32_t data[2]) { Send(canId, data, 8); }
       void Send(uint32_t canId, uint8_t data[8], uint8_t len) { Send(canId, (uint32_t*)data, len); }
       virtual void Send(uint32_t canId, uint32_t data[2], uint8_t len) = 0;
-      void HandleRx(uint32_t canId, uint32_t data[2]);
+      void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       bool AddCallback(CanCallback* cb);
       bool RegisterUserMessage(uint32_t canId);
       void ClearUserMessages();

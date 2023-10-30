@@ -21,7 +21,7 @@
 class NullCallback: public CanCallback
 {
 public:
-   bool HandleRx(uint32_t, uint32_t*) { return false; }
+   bool HandleRx(uint32_t, uint32_t*, uint8_t) { return false; }
    void HandleClear() { }
 };
 
@@ -89,11 +89,11 @@ void CanHardware::ClearUserMessages()
    }
 }
 
-void CanHardware::HandleRx(uint32_t canId, uint32_t data[2])
+void CanHardware::HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc)
 {
    for (int i = 0; i < nextCallbackIndex; i++)
    {
-      if (recvCallback[i]->HandleRx(canId, data))
+      if (recvCallback[i]->HandleRx(canId, data, dlc))
          break;
    }
 }

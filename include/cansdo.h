@@ -29,7 +29,7 @@ class CanSdo: CanCallback, public IPutChar
       /** Default constructor */
       CanSdo(CanHardware* hw, CanMap* cm = 0);
       void HandleClear();
-      bool HandleRx(uint32_t canId, uint32_t data[2]);
+      bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       void SDOWrite(uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data);
       void SDORead(uint8_t nodeId, uint16_t index, uint8_t subIndex);
       bool SDOReadReply(uint32_t& data);
@@ -57,8 +57,8 @@ class CanSdo: CanCallback, public IPutChar
       //In the beginning printBufIn starts at 0 and printBufOut at sizeof(printBuffer) (e.g. 64)
       //All addressing of printBuffer is modulo buffer size
       volatile char printBuffer[64]; //Must be a power of 2 for efficient modulo calculation
-      volatile uint32_t printByteIn;
-      volatile uint32_t printByteOut;
+      uint32_t printByteIn;
+      uint32_t printByteOut;
       Param::PARAM_NUM mapParam;
       uint32_t mapId;
       CanMap::CANPOS mapInfo;
