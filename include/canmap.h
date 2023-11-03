@@ -93,7 +93,6 @@ class CanMap: CanCallback
       uint32_t lastRxTimestamp;
 
       void ClearMap(CANIDMAP *canMap);
-      int RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param);
       int Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset);
       uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
       int LoadFromFlash();
