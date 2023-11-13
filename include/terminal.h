@@ -47,6 +47,7 @@ private:
    struct HwInfo
    {
       uint32_t usart;
+      uint32_t dmactl;
       uint8_t dmatx;
       uint8_t dmarx;
       uint32_t port;
