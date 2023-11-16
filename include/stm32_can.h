@@ -49,6 +49,7 @@ private:
 
    void ConfigureFilters();
    void SetFilterBank(int& idIndex, int& filterId, uint16_t* idList);
+   void SetFilterBankMask(int& idIndex, int& filterId, uint16_t* idMaskList);
    void SetFilterBank29(int& idIndex, int& filterId, uint32_t* idList);
    uint32_t GetFlashAddress();
 

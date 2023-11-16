@@ -63,7 +63,7 @@ class CanHardware
       virtual void Send(uint32_t canId, uint32_t data[2], uint8_t len) = 0;
       void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       bool AddCallback(CanCallback* cb);
-      bool RegisterUserMessage(uint32_t canId);
+      bool RegisterUserMessage(uint32_t canId, uint32_t mask = 0);
       void ClearUserMessages();
       /** \brief Get RTC time when last message was received
        *
@@ -73,7 +73,8 @@ class CanHardware
       uint32_t GetLastRxTimestamp() { return lastRxTimestamp; }
 
    protected:
-      uint16_t userIds[MAX_USER_MESSAGES];
+      uint32_t userIds[MAX_USER_MESSAGES];
+      uint32_t userMasks[MAX_USER_MESSAGES];
       int nextUserMessageIndex;
       uint32_t lastRxTimestamp;
 

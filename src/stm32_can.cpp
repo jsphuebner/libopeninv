@@ -262,6 +262,22 @@ void Stm32Can::SetFilterBank(int& idIndex, int& filterId, uint16_t* idList)
    idList[0] = idList[1] = idList[2] = idList[3] = 0;
 }
 
+void Stm32Can::SetFilterBankMask(int& idIndex, int& filterId, uint16_t* idMaskList)
+{
+   can_filter_id_mask_16bit_init(
+         filterId,
+         idMaskList[0] << 5, //id 1
+         idMaskList[1] << 5, //mask 1
+         idMaskList[2] << 5, //id 2
+         idMaskList[3] << 5, //mask 2
+         filterId & 1,
+         true);
+   idIndex = 0;
+   filterId++;
+   idMaskList[0] = idMaskList[2] = 0;
+   idMaskList[1] = idMaskList[3] = 0x7FF;
+}
+
 void Stm32Can::SetFilterBank29(int& idIndex, int& filterId, uint32_t* idList)
 {
    can_filter_id_list_32bit_init(
@@ -278,8 +294,9 @@ void Stm32Can::SetFilterBank29(int& idIndex, int& filterId, uint32_t* idList)
 void Stm32Can::ConfigureFilters()
 {
    uint16_t idList[IDS_PER_BANK] = { 0, 0, 0, 0 };
+   uint16_t idMaskList[IDS_PER_BANK] = { 0, 0x7FF, 0, 0x7FF };
    uint32_t extIdList[EXT_IDS_PER_BANK] = { 0, 0 };
-   int idIndex = 0, extIdIndex = 0;
+   int idIndex = 0, idMaskIndex = 0, extIdIndex = 0;
    int filterId = canDev == CAN1 ? 0 : ((CAN_FMR(CAN2) >> 8) & 0x3F);
 
    CAN_FA1R(canDev) = 0; //Disable all filters
@@ -291,6 +308,11 @@ void Stm32Can::ConfigureFilters()
          extIdList[extIdIndex] = userIds[i];
          extIdIndex++;
       }
+      else if (userMasks[i] != 0)
+      {
+         idMaskList[idMaskIndex++] = userIds[i];
+         idMaskList[idMaskIndex++] = userMasks[i];
+      }
       else
       {
          idList[idIndex] = userIds[i];
@@ -300,6 +322,10 @@ void Stm32Can::ConfigureFilters()
       if (idIndex == IDS_PER_BANK)
       {
          SetFilterBank(idIndex, filterId, idList);
+      }
+      if (idMaskIndex == EXT_IDS_PER_BANK)
+      {
+         SetFilterBankMask(idMaskIndex, filterId, idMaskList);
       }
       if (extIdIndex == EXT_IDS_PER_BANK)
       {
@@ -311,6 +337,10 @@ void Stm32Can::ConfigureFilters()
    if (idIndex > 0)
    {
       SetFilterBank(idIndex, filterId, idList);
+   }
+   if (idMaskIndex > 0)
+   {
+      SetFilterBankMask(extIdIndex, filterId, idMaskList);
    }
    if (extIdIndex > 0)
    {

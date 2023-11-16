@@ -58,7 +58,7 @@ bool CanHardware::AddCallback(CanCallback* recv)
  * \return true: success, false: already 10 messages registered
  *
  */
-bool CanHardware::RegisterUserMessage(uint32_t canId)
+bool CanHardware::RegisterUserMessage(uint32_t canId, uint32_t mask)
 {
    if (nextUserMessageIndex < MAX_USER_MESSAGES)
    {
@@ -69,6 +69,7 @@ bool CanHardware::RegisterUserMessage(uint32_t canId)
       }
 
       userIds[nextUserMessageIndex] = canId;
+      userMasks[nextUserMessageIndex] = mask;
       nextUserMessageIndex++;
       ConfigureFilters();
       return true;
