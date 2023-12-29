@@ -254,8 +254,8 @@ void TerminalCommands::PrintParamsJson(IPutChar* term, char *arg)
    for (uint32_t idx = 0; idx < Param::PARAM_LAST; idx++)
    {
       uint32_t canId;
-      uint8_t canStart, canLength;
-      int8_t offset;
+      uint8_t canStart;
+      int8_t canLength, offset;
       bool isRx;
       float canGain;
       pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
@@ -453,7 +453,7 @@ void TerminalCommands::Reset(Terminal* term, char *arg)
    scb_reset_system();
 }
 
-void TerminalCommands::PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8_t offsetBits, uint8_t length, float gain, int8_t offset, bool rx)
+void TerminalCommands::PrintCanMap(Param::PARAM_NUM param, uint32_t canid, uint8_t offsetBits, int8_t length, float gain, int8_t offset, bool rx)
 {
    const char* name = Param::GetAttrib(param)->name;
    fprintf(curTerm, "can ");

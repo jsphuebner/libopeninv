@@ -22,6 +22,7 @@
 #include "canmap.h"
 #include "hwdefs.h"
 #include "my_string.h"
+#include "my_math.h"
 
 #define SENDMAP_ADDRESS(b)    b
 #define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
@@ -76,15 +77,55 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
       forEachPosMap(curPos, recvMap)
       {
          float val;
+         uint32_t word;
+         uint8_t pos = curPos->offsetBits;
+         uint8_t numBits = ABS(curPos->numBits);
+         uint32_t mask = (1 << numBits) - 1;
 
-         if (curPos->offsetBits > 31)
+         if (curPos->numBits < 0) //negative length is big endian
          {
-            val = (data[1] >> (curPos->offsetBits - 32)) & ((1 << curPos->numBits) - 1);
+            if (curPos->offsetBits < 32) //all data in first word
+            {
+               word = data[0];
+            }
+            else if ((curPos->offsetBits + curPos->numBits) > 31) //all data in second word
+            {
+               word = data[1];
+               pos -= 32;
+            }
+            else //data spans across both words
+            {
+               pos = pos - numBits + 1;
+               word = data[0] >> pos;
+               word |= data[1] << (32 - pos);
+               pos = numBits - 1;
+            }
+
+            //Swap byte order
+            uint8_t* bptr = (uint8_t*)&word;
+            word = (bptr[0] << 24) | (bptr[1] << 16) | (bptr[2] << 8) | bptr[3];
+            pos = 31 - pos;
          }
-         else
+         else //little endian
          {
-            val = (data[0] >> curPos->offsetBits) & ((1 << curPos->numBits) - 1);
+            if (curPos->offsetBits > 31) //all data in second word
+            {
+               word = data[1];
+               pos -= 32; //position in second word
+            }
+            else if ((curPos->offsetBits + curPos->numBits) < 32) //all data in first word
+            {
+               word = data[0];
+            }
+            else //data spans across both words
+            {
+               word = data[0] >> pos;
+               word |= data[1] << (32 - pos);
+               pos = 0; //already shifted, don't shift anymore below
+            }
          }
+
+         val = (word >> pos) & mask;
          val += curPos->offset;
          val *= curPos->gain;
 
@@ -156,12 +197,12 @@ void CanMap::SendAll()
  * - CAN_ERR_MAXMESSAGES Already 10 send messages defined
  * - CAN_ERR_MAXITEMS Already than MAX_ITEMS items total defined
  */
-int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset)
+int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain, int8_t offset)
 {
    return Add(canSendMap, param, canId, offsetBits, length, gain, offset);
 }
 
-int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain)
+int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain)
 {
    return Add(canSendMap, param, canId, offsetBits, length, gain, 0);
 }
@@ -181,14 +222,14 @@ int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, 
  * - CAN_ERR_MAXMESSAGES Already 10 receive messages defined
  * - CAN_ERR_MAXITEMS Already than MAX_ITEMS items total defined
  */
-int CanMap::AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset)
+int CanMap::AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain, int8_t offset)
 {
    int res = Add(canRecvMap, param, canId, offsetBits, length, gain, offset);
    canHardware->RegisterUserMessage(canId);
    return res;
 }
 
-int CanMap::AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain)
+int CanMap::AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain)
 {
    return AddRecv(param, canId, offsetBits, length, gain, 0);
 }
@@ -328,7 +369,7 @@ void CanMap::Save()
  * \param[out] rx true: Parameter is received via CAN, false: sent via CAN
  * \return true: parameter is mapped, false: not mapped
  */
-bool CanMap::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& start, uint8_t& length, float& gain, int8_t& offset, bool& rx)
+bool CanMap::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& start, int8_t& length, float& gain, int8_t& offset, bool& rx)
 {
    rx = false;
    bool done = false;
@@ -374,7 +415,7 @@ const CanMap::CANPOS* CanMap::GetMap(bool rx, uint8_t ididx, uint8_t itemidx, ui
    return 0;
 }
 
-void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, int8_t, bool))
+void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, int8_t, float, int8_t, bool))
 {
    bool done = false, rx = false;
 
@@ -409,11 +450,11 @@ void CanMap::ClearMap(CANIDMAP *canMap)
    }
 }
 
-int CanMap::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset)
+int CanMap::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain, int8_t offset)
 {
    if (canId > MAX_COB_ID) return CAN_ERR_INVALID_ID;
    if (offsetBits > 63) return CAN_ERR_INVALID_OFS;
-   if (length > 32) return CAN_ERR_INVALID_LEN;
+   if (length > 32 || length < -32) return CAN_ERR_INVALID_LEN;
 
    CANIDMAP *existingMap = FindById(canMap, canId);
 
