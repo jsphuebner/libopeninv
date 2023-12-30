@@ -31,6 +31,7 @@ namespace PinMode {
        INPUT_AIN,
        OUTPUT,
        OUTPUT_OD,
+       OUTPUT_ALT,
        LAST
    };
 }
