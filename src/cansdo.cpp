@@ -373,10 +373,10 @@ void CanSdo::AddCanMap(CAN_SDO* sdo, bool rx)
          //Now we receive UID of value to be mapped along with bit start and length
          mapInfo.mapParam = Param::NumFromId(sdo->data & 0xFFFF);
          mapInfo.offsetBits = (sdo->data >> 16) & 0x3F;
-         mapInfo.numBits = (sdo->data >> 24) & 0x1F;
+         mapInfo.numBits = ((int32_t)sdo->data >> 24);
          result = mapInfo.mapParam < Param::PARAM_LAST ? 0 : -1;
       }
-      else if (mapInfo.numBits > 0 && sdo->subIndex == 2) //This sort of verifies that we received subindex 1
+      else if (mapInfo.numBits != 0 && sdo->subIndex == 2) //This sort of verifies that we received subindex 1
       {
          //Now we receive gain and offset and add the map
          mapInfo.gain = (sdo->data & 0xFFFFFF) / 1000.0f;
