@@ -21,7 +21,7 @@
 class NullCallback: public CanCallback
 {
 public:
-   bool HandleRx(uint32_t, uint32_t*) { return false; }
+   bool HandleRx(uint32_t, uint32_t*, uint8_t) { return false; }
    void HandleClear() { }
 };
 
@@ -58,7 +58,7 @@ bool CanHardware::AddCallback(CanCallback* recv)
  * \return true: success, false: already 10 messages registered
  *
  */
-bool CanHardware::RegisterUserMessage(uint32_t canId)
+bool CanHardware::RegisterUserMessage(uint32_t canId, uint32_t mask)
 {
    if (nextUserMessageIndex < MAX_USER_MESSAGES)
    {
@@ -69,6 +69,7 @@ bool CanHardware::RegisterUserMessage(uint32_t canId)
       }
 
       userIds[nextUserMessageIndex] = canId;
+      userMasks[nextUserMessageIndex] = mask;
       nextUserMessageIndex++;
       ConfigureFilters();
       return true;
@@ -89,11 +90,11 @@ void CanHardware::ClearUserMessages()
    }
 }
 
-void CanHardware::HandleRx(uint32_t canId, uint32_t data[2])
+void CanHardware::HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc)
 {
    for (int i = 0; i < nextCallbackIndex; i++)
    {
-      if (recvCallback[i]->HandleRx(canId, data))
+      if (recvCallback[i]->HandleRx(canId, data, dlc))
          break;
    }
 }

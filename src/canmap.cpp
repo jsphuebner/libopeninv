@@ -22,6 +22,7 @@
 #include "canmap.h"
 #include "hwdefs.h"
 #include "my_string.h"
+#include "my_math.h"
 
 #define SENDMAP_ADDRESS(b)    b
 #define RECVMAP_ADDRESS(b)    (b + sizeof(canSendMap))
@@ -65,7 +66,7 @@ void CanMap::HandleClear()
    }
 }
 
-bool CanMap::HandleRx(uint32_t canId, uint32_t data[2])
+bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
    if (isSaving) return false; //Only handle mapped messages when not currently saving to flash
 
@@ -76,15 +77,55 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2])
       forEachPosMap(curPos, recvMap)
       {
          float val;
+         uint32_t word;
+         uint8_t pos = curPos->offsetBits;
+         uint8_t numBits = ABS(curPos->numBits);
+         uint32_t mask = (1 << numBits) - 1;
 
-         if (curPos->offsetBits > 31)
+         if (curPos->numBits < 0) //negative length is big endian
          {
-            val = (data[1] >> (curPos->offsetBits - 32)) & ((1 << curPos->numBits) - 1);
+            if (curPos->offsetBits < 32) //all data in first word
+            {
+               word = data[0];
+            }
+            else if ((curPos->offsetBits + curPos->numBits) > 31) //all data in second word
+            {
+               word = data[1];
+               pos -= 32;
+            }
+            else //data spans across both words
+            {
+               pos = pos - numBits + 1;
+               word = data[0] >> pos;
+               word |= data[1] << (32 - pos);
+               pos = numBits - 1;
+            }
+
+            //Swap byte order
+            uint8_t* bptr = (uint8_t*)&word;
+            word = (bptr[0] << 24) | (bptr[1] << 16) | (bptr[2] << 8) | bptr[3];
+            pos = 31 - pos;
          }
-         else
+         else //little endian
          {
-            val = (data[0] >> curPos->offsetBits) & ((1 << curPos->numBits) - 1);
+            if (curPos->offsetBits > 31) //all data in second word
+            {
+               word = data[1];
+               pos -= 32; //position in second word
+            }
+            else if ((curPos->offsetBits + curPos->numBits) < 32) //all data in first word
+            {
+               word = data[0];
+            }
+            else //data spans across both words
+            {
+               word = data[0] >> pos;
+               word |= data[1] << (32 - pos);
+               pos = 0; //already shifted, don't shift anymore below
+            }
          }
+
+         val = (word >> pos) & mask;
          val += curPos->offset;
          val *= curPos->gain;
 
@@ -156,12 +197,12 @@ void CanMap::SendAll()
  * - CAN_ERR_MAXMESSAGES Already 10 send messages defined
  * - CAN_ERR_MAXITEMS Already than MAX_ITEMS items total defined
  */
-int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset)
+int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain, int8_t offset)
 {
    return Add(canSendMap, param, canId, offsetBits, length, gain, offset);
 }
 
-int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain)
+int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain)
 {
    return Add(canSendMap, param, canId, offsetBits, length, gain, 0);
 }
@@ -181,19 +222,19 @@ int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, 
  * - CAN_ERR_MAXMESSAGES Already 10 receive messages defined
  * - CAN_ERR_MAXITEMS Already than MAX_ITEMS items total defined
  */
-int CanMap::AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset)
+int CanMap::AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain, int8_t offset)
 {
    int res = Add(canRecvMap, param, canId, offsetBits, length, gain, offset);
    canHardware->RegisterUserMessage(canId);
    return res;
 }
 
-int CanMap::AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain)
+int CanMap::AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain)
 {
    return AddRecv(param, canId, offsetBits, length, gain, 0);
 }
 
-/** \brief Remove all occurences of given parameter from CAN map
+/** \brief Remove first occurrence of given parameter from CAN map
  *
  * \param param Parameter index to be removed
  * \return int number of removed items
@@ -201,18 +242,43 @@ int CanMap::AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, 
  */
 int CanMap::Remove(Param::PARAM_NUM param)
 {
-   int removed = RemoveFromMap(canSendMap, param);
-   removed += RemoveFromMap(canRecvMap, param);
+   bool rx = false;
+   bool done = false;
+   uint8_t messageIdx = 0, itemIdx = 0;
 
-   return removed;
+   for (CANIDMAP *map = canSendMap; !done; map = canRecvMap)
+   {
+      messageIdx = 0;
+      forEachCanMap(curMap, map)
+      {
+         itemIdx = 0;
+         forEachPosMap(curPos, curMap)
+         {
+            if (curPos->mapParam == param)
+               goto itemfound; //ugly but the only way without extra function
+
+            itemIdx++;
+         }
+         messageIdx++;
+      }
+      done = rx; //done iterating RX map
+      rx = true; //done iterating TX map, now we iterate RX map
+   }
+
+itemfound:
+
+   if (!done) //loop didn't run to end
+      return Remove(rx, messageIdx, itemIdx);
+
+   return 0;
 }
 
-int CanMap::Remove(bool rx, uint8_t ididx, uint8_t itemidx)
+int CanMap::Remove(bool rx, uint8_t messageIdx, uint8_t itemidx)
 {
    CANPOS *lastPosMap = 0;
-   CANIDMAP *map = rx ? &canRecvMap[ididx] : &canSendMap[ididx];
+   CANIDMAP *map = rx ? &canRecvMap[messageIdx] : &canSendMap[messageIdx];
 
-   if (ididx > MAX_MESSAGES || map->first == MAX_ITEMS) return 0;
+   if (messageIdx > MAX_MESSAGES || map->first == MAX_ITEMS) return 0;
 
    forEachPosMap(curPos, map)
    {
@@ -222,11 +288,27 @@ int CanMap::Remove(bool rx, uint8_t ididx, uint8_t itemidx)
          {
             lastPosMap->next = curPos->next;
          }
+         else if (curPos->next != MAX_ITEMS)
+         {
+            //We deleted the first item of the message -> move second item to first
+            map->first = curPos->next;
+         }
          else
          {
-            //If curPos was the last mapped item, then next is ITEM_UNSET
-            //Now first will become ITEM_UNSET marking the entry as unused
-            map->first = curPos->next;
+            //If curPos was the last mapped item, we have to fill in the blank
+            //by moving the last mapped item here.
+            uint8_t lastIdx = 0;
+            //find last item
+            for (; (lastIdx + messageIdx) < MAX_MESSAGES && map[lastIdx].first != MAX_ITEMS; lastIdx++);
+            //lastidx is now the first unused item, go back one for the last used one
+            lastIdx--;
+
+            //move last message to our deleted message
+            //we might move the message to itself but that's ok
+            map->first = map[lastIdx].first;
+            map->canId = map[lastIdx].canId;
+            //mark last message ununsed
+            map[lastIdx].first = MAX_ITEMS;
          }
          return 1;
       }
@@ -287,7 +369,7 @@ void CanMap::Save()
  * \param[out] rx true: Parameter is received via CAN, false: sent via CAN
  * \return true: parameter is mapped, false: not mapped
  */
-bool CanMap::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& start, uint8_t& length, float& gain, int8_t& offset, bool& rx)
+bool CanMap::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& start, int8_t& length, float& gain, int8_t& offset, bool& rx)
 {
    rx = false;
    bool done = false;
@@ -333,7 +415,7 @@ const CanMap::CANPOS* CanMap::GetMap(bool rx, uint8_t ididx, uint8_t itemidx, ui
    return 0;
 }
 
-void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, uint8_t, float, int8_t, bool))
+void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t, int8_t, float, int8_t, bool))
 {
    bool done = false, rx = false;
 
@@ -368,47 +450,11 @@ void CanMap::ClearMap(CANIDMAP *canMap)
    }
 }
 
-/** \brief Remove the first occurrence of an item from can map
- *
- * \param canMap CANIDMAP*
- * \param param Param::PARAM_NUM
- * \return 0 or 1 item removed
- *
- */
-int CanMap::RemoveFromMap(CANIDMAP *canMap, Param::PARAM_NUM param)
-{
-   forEachCanMap(curMap, canMap)
-   {
-      CANPOS *lastPosMap = 0;
-
-      forEachPosMap(curPos, curMap)
-      {
-         if (curPos->mapParam == param)
-         {
-            if (lastPosMap != 0)
-            {
-               lastPosMap->next = curPos->next;
-            }
-            else
-            {
-               //If curPos was the last mapped item, then next is ITEM_UNSET
-               //Now first will become ITEM_UNSET marking the entry as unused
-               curMap->first = curPos->next;
-            }
-            return 1;
-         }
-         lastPosMap = curPos;
-      }
-   }
-
-   return 0;
-}
-
-int CanMap::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, uint8_t length, float gain, int8_t offset)
+int CanMap::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain, int8_t offset)
 {
    if (canId > MAX_COB_ID) return CAN_ERR_INVALID_ID;
    if (offsetBits > 63) return CAN_ERR_INVALID_OFS;
-   if (length > 32) return CAN_ERR_INVALID_LEN;
+   if (length > 32 || length < -32) return CAN_ERR_INVALID_LEN;
 
    CANIDMAP *existingMap = FindById(canMap, canId);
 
