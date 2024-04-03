@@ -22,6 +22,9 @@
 #include <stdint.h>
 #include "anain_prj.h"
 
+#ifndef ADC_COUNT
+#define ADC_COUNT 1
+#endif // ADC_COUNT
 
 class AnaIn
 {
@@ -42,7 +45,7 @@ public:
 
 private:
    static uint16_t values[];
-   static uint8_t channel_array[];
+   static uint8_t channel_array[ADC_COUNT][ANA_IN_COUNT / ADC_COUNT];
 
    uint16_t GetIndex() { return firstValue - values; }
    static uint8_t AdcChFromPort(uint32_t command_port, int command_bit);
