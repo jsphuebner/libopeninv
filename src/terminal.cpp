@@ -41,7 +41,7 @@ const Terminal::HwInfo Terminal::hwInfo[] =
 
 Terminal* Terminal::defaultTerminal;
 
-Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap)
+Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap, bool echo)
 :  usart(usart),
    remap(remap),
    termCmds(commands),
@@ -52,7 +52,8 @@ Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap)
    lastIdx(0),
    curBuf(0),
    curIdx(0),
-   firstSend(true)
+   firstSend(true),
+   echo(echo)
 {
    //Search info entry
    hw = hwInfo;
@@ -98,13 +99,13 @@ Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap)
 /** Run the terminal */
 void Terminal::Run()
 {
-   int numRcvd = dma_get_number_of_data(hw->dmactl, hw->dmarx);
-   int currentIdx = bufSize - numRcvd;
+   int unusedBytes = dma_get_number_of_data(hw->dmactl, hw->dmarx);
+   int currentIdx = bufSize - unusedBytes;
 
-   if (0 == numRcvd)
+   if (0 == unusedBytes)
       ResetDMA();
 
-   while (lastIdx < currentIdx) //echo
+   while (echo && lastIdx < currentIdx) //echo
       usart_send_blocking(usart, inBuf[lastIdx++]);
 
    if (currentIdx > 0)
@@ -141,6 +142,11 @@ void Terminal::Run()
             else if (my_strcmp(inBuf, "fastuart") == 0)
             {
                FastUart(args);
+               currentIdx = 0;
+            }
+            else if (my_strcmp(inBuf, "echo") == 0)
+            {
+               Echo(args);
                currentIdx = 0;
             }
             else
@@ -288,6 +294,19 @@ void Terminal::FastUart(char *arg)
    }
    usart_set_baudrate(usart, baud);
    usart_set_stopbits(usart, USART_STOPBITS_1);
+}
+
+void Terminal::Echo(char* arg)
+{
+   arg = my_trim(arg);
+
+   if (arg[0] != 0)
+      echo = arg[0] == '0' ? false : true;
+
+   if (echo)
+      Send("Echo on\r\n");
+   else
+      Send("Echo off\r\n");
 }
 
 const TERM_CMD* Terminal::CmdLookup(char *buf)
