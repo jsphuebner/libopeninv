@@ -24,10 +24,26 @@
 #include "anain.h"
 #include "my_math.h"
 
+#if ADC_COUNT == 1
+   #define TRANSFER_PSIZE DMA_CCR_PSIZE_16BIT
+   #define TRANSFER_MSIZE DMA_CCR_MSIZE_16BIT
+#elif ADC_COUNT == 2
+   #define TRANSFER_PSIZE DMA_CCR_PSIZE_32BIT
+   #define TRANSFER_MSIZE DMA_CCR_MSIZE_32BIT
+   #undef ANA_IN_ENTRY
+   #define ANA_IN_ENTRY(name, port, pin) +1
+   #if ((ANA_IN_LIST) & 1) == 1
+      #error In dual ADC mode you must define an even number of inputs
+   #endif
+   #undef ANA_IN_ENTRY
+#else
+   #error ADC_COUNT must be 1 or 2
+#endif // ADC_COUNT
+
 #define ADC_DMA_CHAN 1
 #define MEDIAN3_FROM_ADC_ARRAY(a) median3(*a, *(a + ANA_IN_COUNT), *(a + 2*ANA_IN_COUNT))
 
-uint8_t AnaIn::channel_array[ANA_IN_COUNT];
+uint8_t AnaIn::channel_array[ADC_COUNT][ANA_IN_COUNT / ADC_COUNT];
 uint16_t AnaIn::values[NUM_SAMPLES*ANA_IN_COUNT];
 
 #undef ANA_IN_ENTRY
@@ -40,40 +56,47 @@ ANA_IN_LIST
 */
 void AnaIn::Start()
 {
-   adc_power_off(ADC1);
-   adc_enable_scan_mode(ADC1);
-   adc_set_continuous_conversion_mode(ADC1);
-   adc_set_right_aligned(ADC1);
-   adc_set_sample_time_on_all_channels(ADC1, SAMPLE_TIME);
+   uint32_t adc[] = { ADC1, ADC2 };
 
-   adc_power_on(ADC1);
-   /* wait for adc starting up*/
-   for (int i = 0; i < 80000; i++);
-
-   adc_reset_calibration(ADC1);
-   adc_calibrate(ADC1);
-
-   adc_set_regular_sequence(ADC1, ANA_IN_COUNT, channel_array);
-   adc_enable_dma(ADC1);
+   for (int i = 0; i < ADC_COUNT; i++)
+   {
+      adc_power_off(adc[i]);
+      adc_enable_scan_mode(adc[i]);
+      adc_set_continuous_conversion_mode(adc[i]);
+      adc_set_right_aligned(adc[i]);
+      adc_set_sample_time_on_all_channels(adc[i], SAMPLE_TIME);
+      adc_power_on(adc[i]);
+      adc_reset_calibration(adc[i]);
+      adc_calibrate(adc[i]);
+      adc_set_regular_sequence(adc[i], ANA_IN_COUNT / ADC_COUNT, channel_array[i]);
+      adc_enable_dma(adc[i]);
+      adc_enable_external_trigger_regular(adc[i], ADC_CR2_EXTSEL_SWSTART);
+   }
 
    dma_set_peripheral_address(DMA1, ADC_DMA_CHAN, (uint32_t)&ADC_DR(ADC1));
    dma_set_memory_address(DMA1, ADC_DMA_CHAN, (uint32_t)values);
-   dma_set_peripheral_size(DMA1, ADC_DMA_CHAN, DMA_CCR_PSIZE_16BIT);
-   dma_set_memory_size(DMA1, ADC_DMA_CHAN, DMA_CCR_MSIZE_16BIT);
-   dma_set_number_of_data(DMA1, ADC_DMA_CHAN, NUM_SAMPLES * ANA_IN_COUNT);
+   dma_set_peripheral_size(DMA1, ADC_DMA_CHAN, TRANSFER_PSIZE);
+   dma_set_memory_size(DMA1, ADC_DMA_CHAN, TRANSFER_MSIZE);
+   dma_set_number_of_data(DMA1, ADC_DMA_CHAN, NUM_SAMPLES * ANA_IN_COUNT / ADC_COUNT);
    dma_enable_memory_increment_mode(DMA1, ADC_DMA_CHAN);
    dma_enable_circular_mode(DMA1, ADC_DMA_CHAN);
    dma_enable_channel(DMA1, ADC_DMA_CHAN);
 
-   //adc_start_conversion_regular(ADC1);
-   //ADC_CR2(ADC1) |= ADC_CR2_JSWSTART;
-   adc_start_conversion_direct(ADC1);
+   #if ADC_COUNT == 2
+   adc_set_dual_mode(ADC_CR1_DUALMOD_CRSISM);
+   #endif
+   adc_start_conversion_regular(ADC1);
 }
 
 void AnaIn::Configure(uint32_t port, uint8_t pin)
 {
    gpio_set_mode(port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_ANALOG, 1 << pin);
-   channel_array[GetIndex()] = AdcChFromPort(port, pin);
+
+   #if ADC_COUNT == 1
+   channel_array[0][GetIndex()] = AdcChFromPort(port, pin);
+   #elif ADC_COUNT == 2
+   channel_array[GetIndex() & 1][GetIndex() / 2] = AdcChFromPort(port, pin);
+   #endif // ADC_COUNT
 }
 
 /**
@@ -93,6 +116,8 @@ uint16_t AnaIn::Get()
    return *firstValue;
    #elif NUM_SAMPLES == 3
    return MEDIAN3_FROM_ADC_ARRAY(firstValue);
+   #elif NUM_SAMPLES == 4
+   return (*firstValue + *(firstValue + ANA_IN_COUNT) + *(firstValue + 2*ANA_IN_COUNT) + *(firstValue + 3*ANA_IN_COUNT)) / 4;
    #elif NUM_SAMPLES == 9
    uint16_t *curVal = firstValue;
    uint16_t med[3];
