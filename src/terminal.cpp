@@ -112,6 +112,8 @@ void Terminal::Run()
    {
       if (inBuf[currentIdx - 1] == '\n' || inBuf[currentIdx - 1] == '\r')
       {
+         //Do not accept a new command while processing the current one
+         dma_disable_channel(hw->dmactl, hw->dmarx);
          if (currentIdx > 1) //handle just \n quicker
          {
             inBuf[currentIdx] = 0;
@@ -256,6 +258,8 @@ void Terminal::ResetDMA()
    dma_disable_channel(hw->dmactl, hw->dmarx);
    dma_set_memory_address(hw->dmactl, hw->dmarx, (uint32_t)inBuf);
    dma_set_number_of_data(hw->dmactl, hw->dmarx, bufSize);
+   if (usart_get_flag(usart, USART_SR_ORE))
+      usart_recv(usart); //Clear possible overrun
    dma_enable_channel(hw->dmactl, hw->dmarx);
 }
 
