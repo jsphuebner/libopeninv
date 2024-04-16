@@ -218,7 +218,7 @@ void Terminal::PutChar(char c)
    }
 }
 
-void Terminal::SendBinary(uint8_t* data, uint32_t len)
+void Terminal::SendBinary(const uint8_t* data, uint32_t len)
 {
    uint32_t limitedLen = len < bufSize ? len : bufSize;
 
@@ -227,7 +227,7 @@ void Terminal::SendBinary(uint8_t* data, uint32_t len)
    SendCurrentBuffer(limitedLen);
 }
 
-void Terminal::SendBinary(uint32_t* data, uint32_t len)
+void Terminal::SendBinary(const uint32_t* data, uint32_t len)
 {
    uint32_t limitedLen = len < (bufSize / sizeof(uint32_t)) ? len : bufSize / sizeof(uint32_t);
    memcpy32((int*)outBuf[curBuf], (int*)data, limitedLen);
@@ -331,8 +331,7 @@ const TERM_CMD* Terminal::CmdLookup(char *buf)
 
 void Terminal::Send(const char *str)
 {
-   for (;*str > 0; str++)
-       usart_send_blocking(usart, *str);
+   SendBinary((const uint8_t*)str, my_strlen(str));
 }
 
 void Terminal::SendCurrentBuffer(uint32_t len)

@@ -36,8 +36,8 @@ public:
    void SetNodeId(uint8_t id);
    void Run();
    void PutChar(char c);
-   void SendBinary(uint8_t* data, uint32_t length);
-   void SendBinary(uint32_t* data, uint32_t length);
+   void SendBinary(const uint8_t* data, uint32_t length);
+   void SendBinary(const uint32_t* data, uint32_t length);
    bool KeyPressed();
    void FlushInput();
    void DisableTxDMA();
