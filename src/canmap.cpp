@@ -46,14 +46,14 @@
 
 volatile bool CanMap::isSaving = false;
 
-CanMap::CanMap(CanHardware* hw)
+CanMap::CanMap(CanHardware* hw, bool loadFromFlash)
  : canHardware(hw)
 {
    canHardware->AddCallback(this);
 
    ClearMap(canSendMap);
    ClearMap(canRecvMap);
-   LoadFromFlash();
+   if (loadFromFlash) LoadFromFlash();
    HandleClear();
 }
 

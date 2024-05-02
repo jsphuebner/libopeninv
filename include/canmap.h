@@ -54,7 +54,7 @@ class CanMap: CanCallback
          uint8_t next;
       };
 
-      CanMap(CanHardware* hw);
+      CanMap(CanHardware* hw, bool loadFromFlash = true);
       CanHardware* GetHardware() { return canHardware; }
       void HandleClear();
       bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
