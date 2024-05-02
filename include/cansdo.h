@@ -57,8 +57,8 @@ class CanSdo: CanCallback, public IPutChar
       //In the beginning printBufIn starts at 0 and printBufOut at sizeof(printBuffer) (e.g. 64)
       //All addressing of printBuffer is modulo buffer size
       volatile char printBuffer[64]; //Must be a power of 2 for efficient modulo calculation
-      uint32_t printByteIn;
-      uint32_t printByteOut;
+      volatile uint32_t printByteIn;
+      volatile uint32_t printByteOut;
       Param::PARAM_NUM mapParam;
       uint32_t mapId;
       CanMap::CANPOS mapInfo;
