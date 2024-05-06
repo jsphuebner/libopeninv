@@ -330,7 +330,7 @@ void CanSdo::ReadOrDeleteCanMap(CAN_SDO* sdo)
          else if (sdo->subIndex & 1) //odd sub indexes have data id, position and length
             sdo->data = id | (canPos->offsetBits << 16) | (canPos->numBits << 24);
          else //even sub indexes except 0 have gain and offset
-            sdo->data = (((uint32_t)(canPos->gain * 1000)) & 0xFFFFFF) | (canPos->offset << 24);
+            sdo->data = (uint32_t)(((int32_t)(canPos->gain * 1000)) & 0xFFFFFF) | (canPos->offset << 24);
          sdo->cmd = SDO_READ_REPLY;
       }
       else
@@ -379,7 +379,11 @@ void CanSdo::AddCanMap(CAN_SDO* sdo, bool rx)
       else if (mapInfo.numBits != 0 && sdo->subIndex == 2) //This sort of verifies that we received subindex 1
       {
          //Now we receive gain and offset and add the map
-         mapInfo.gain = (sdo->data & 0xFFFFFF) / 1000.0f;
+
+         // sign extend the 24-bit integer to a 32-bit integer
+         int32_t gainFixedPoint = (sdo->data & 0xFFFFFF) << (32-24);
+         gainFixedPoint >>= (32-24);
+         mapInfo.gain = gainFixedPoint / 1000.0f;
          mapInfo.offset = sdo->data >> 24;
 
          if (rx) //RX map
