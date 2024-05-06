@@ -453,8 +453,8 @@ void CanMap::ClearMap(CANIDMAP *canMap)
 int CanMap::Add(CANIDMAP *canMap, Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain, int8_t offset)
 {
    if (canId > MAX_COB_ID) return CAN_ERR_INVALID_ID;
-   if (offsetBits > 63) return CAN_ERR_INVALID_OFS;
-   if (length > 32 || length < -32) return CAN_ERR_INVALID_LEN;
+   if (offsetBits + ABS(length) - 1 > 63) return CAN_ERR_INVALID_OFS;
+   if (length == 0 || ABS(length) > 32) return CAN_ERR_INVALID_LEN;
 
    CANIDMAP *existingMap = FindById(canMap, canId);
 
