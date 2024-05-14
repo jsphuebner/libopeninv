@@ -168,14 +168,14 @@ void CanMap::SendAll()
          // convert to a signed integer value before storing in an unsigned to
          // avoid sign-extension problems when we start shifting and masking
          uint32_t ival = (int32_t)val;
-         ival &= ((1 << curPos->numBits) - 1);
+         ival &= ((1UL << curPos->numBits) - 1);
 
          if (curPos->offsetBits > 31)
          {
             // data entirely in the second word
             data[1] |= ival << (curPos->offsetBits - 32);
          }
-         else if ((curPos->offsetBits + curPos->numBits) < 32)
+         else if ((curPos->offsetBits + curPos->numBits) <= 32)
          {
             // data entirely in the first word
             data[0] |= ival << curPos->offsetBits;
