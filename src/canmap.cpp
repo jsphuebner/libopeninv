@@ -168,23 +168,47 @@ void CanMap::SendAll()
          // convert to a signed integer value before storing in an unsigned to
          // avoid sign-extension problems when we start shifting and masking
          uint32_t ival = (int32_t)val;
-         ival &= ((1UL << curPos->numBits) - 1);
+         uint8_t numBits = ABS(curPos->numBits);
+         ival &= (1UL << numBits) - 1;
 
-         if (curPos->offsetBits > 31)
+         if (curPos->numBits < 0) // big-endian
          {
-            // data entirely in the second word
-            data[1] |= ival << (curPos->offsetBits - 32);
+            //Swap byte order
+            const uint8_t* bptr = (uint8_t*)&ival;
+            ival = (bptr[0] << 24) | (bptr[1] << 16) | (bptr[2] << 8) | bptr[3];
+
+            if (curPos->offsetBits < 32) //all data in first word
+            {
+               data[0] |= ival >> (31 - curPos->offsetBits);
+            }
+            else if ((curPos->offsetBits + curPos->numBits) >= 31) //all data in second word
+            {
+               data[1] |= ival >> (63 - curPos->offsetBits);
+            }
+            else //data spans across both words
+            {
+               data[0] |= ival << (curPos->offsetBits - 31);
+               data[1] |= ival >> (63 - curPos->offsetBits);
+            }
          }
-         else if ((curPos->offsetBits + curPos->numBits) <= 32)
+         else // little-endian
          {
-            // data entirely in the first word
-            data[0] |= ival << curPos->offsetBits;
-         }
-         else
-         {
-            // data spans both words
-            data[0] |= ival << curPos->offsetBits;
-            data[1] |= ival >> (32 - curPos->offsetBits);
+            if (curPos->offsetBits > 31)
+            {
+               // data entirely in the second word
+               data[1] |= ival << (curPos->offsetBits - 32);
+            }
+            else if ((curPos->offsetBits + curPos->numBits) <= 32)
+            {
+               // data entirely in the first word
+               data[0] |= ival << curPos->offsetBits;
+            }
+            else
+            {
+               // data spans both words
+               data[0] |= ival << curPos->offsetBits;
+               data[1] |= ival >> (32 - curPos->offsetBits);
+            }
          }
       }
 
