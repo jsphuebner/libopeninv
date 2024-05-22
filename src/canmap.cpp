@@ -80,7 +80,6 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
          uint32_t word;
          uint8_t pos = curPos->offsetBits;
          uint8_t numBits = ABS(curPos->numBits);
-         uint32_t mask = (1 << numBits) - 1;
 
          if (curPos->numBits < 0) //negative length is big endian
          {
@@ -102,7 +101,7 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
             }
 
             //Swap byte order
-            uint8_t* bptr = (uint8_t*)&word;
+            const uint8_t* bptr = (uint8_t*)&word;
             word = (bptr[0] << 24) | (bptr[1] << 16) | (bptr[2] << 8) | bptr[3];
             pos = 31 - pos;
          }
@@ -113,7 +112,7 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
                word = data[1];
                pos -= 32; //position in second word
             }
-            else if ((curPos->offsetBits + curPos->numBits) < 32) //all data in first word
+            else if ((curPos->offsetBits + curPos->numBits) <= 32) //all data in first word
             {
                word = data[0];
             }
@@ -125,7 +124,24 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
             }
          }
 
-         val = (word >> pos) & mask;
+         // extract the bits we are looking for
+         uint32_t mask = (1L << numBits) - 1;
+         word = (word >> pos) & mask;
+
+         // sign-extend our arbitrary sized integer out to 32-bits but only if
+         // it is bigger than a single bit
+         int32_t ival;
+         if (numBits > 1)
+         {
+            uint32_t sign_bit = 1L << (numBits - 1);
+            ival = static_cast<int32_t>(((word + sign_bit) & mask)) - sign_bit;
+         }
+         else
+         {
+            ival = word;
+         }
+
+         val = ival;
          val += curPos->offset;
          val *= curPos->gain;
 
