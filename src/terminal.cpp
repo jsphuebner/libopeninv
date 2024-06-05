@@ -102,14 +102,14 @@ void Terminal::Run()
    int unusedBytes = dma_get_number_of_data(hw->dmactl, hw->dmarx);
    int currentIdx = bufSize - unusedBytes;
 
-   if (usart_get_flag(usart, USART_SR_ORE))
-      usart_recv(usart); //Clear possible overrun
-
    if (0 == unusedBytes)
       ResetDMA();
 
    while (echo && lastIdx < currentIdx) //echo
       usart_send_blocking(usart, inBuf[lastIdx++]);
+
+   if (usart_get_flag(usart, USART_SR_ORE))
+      usart_recv(usart); //Clear possible overrun
 
    if (currentIdx > 0)
    {
@@ -292,7 +292,7 @@ void Terminal::FastUart(char *arg)
    {
       char buf[10];
       my_ltoa(buf, baud, 10);
-      Send("OK\r\n");
+      Send("\nOK\r\n");
       Send("Baud rate now ");
       Send(buf);
       Send("\r\n");
