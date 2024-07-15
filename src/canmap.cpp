@@ -34,11 +34,20 @@
 #define ITEM_UNSET            0xff
 #define forEachCanMap(c,m) for (CANIDMAP *c = m; (c - m) < MAX_MESSAGES && c->first != MAX_ITEMS; c++)
 #define forEachPosMap(c,m) for (CANPOS *c = &canPosMap[m->first]; c->next != ITEM_UNSET; c = &canPosMap[c->next])
+#define IS_EXT_FORCE(id)      ((SHIFT_FORCE_FLAG(1) & id) != 0)
+#define MASK_EXT_FORCE(id)    (id & ~SHIFT_FORCE_FLAG(1))
+
+//If we configure the module to only support 11-bit IDs, we only have 16 bits of memory
+//allocated for the ID. In this case we put the "force extended ID filter" flag
+//into the 11th bit.
+//When allowing extended ids we put it into the 29th bit
 
 #ifdef CAN_EXT
 #define IDMAPSIZE 8
+#define SHIFT_FORCE_FLAG(f) (f << 29)
 #else
 #define IDMAPSIZE 4
+#define SHIFT_FORCE_FLAG(f) (f << 11)
 #endif // CAN_EXT
 #if (MAX_ITEMS * 12 + 2 * MAX_MESSAGES * IDMAPSIZE + 4) > FLASH_PAGE_SIZE
 #error CANMAP will not fit in one flash page
@@ -62,9 +71,8 @@ void CanMap::HandleClear()
 {
    forEachCanMap(curMap, canRecvMap)
    {
-      bool forceExtended = (curMap->canId & 0x800) != 0;
-      canHardware->RegisterUserMessage((curMap->canId & 0x7ff) + (forceExtended << 29));
-      canHardware->RegisterUserMessage(curMap->canId);
+      bool forceExtended = IS_EXT_FORCE(curMap->canId);
+      canHardware->RegisterUserMessage((curMap->canId & ~SHIFT_FORCE_FLAG(1)) + (forceExtended * CAN_FORCE_EXTENDED));
    }
 }
 
@@ -133,12 +141,14 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
          // sign-extend our arbitrary sized integer out to 32-bits but only if
          // it is bigger than a single bit
          int32_t ival;
+         #if CAN_SIGNED
          if (numBits > 1)
          {
             uint32_t sign_bit = 1L << (numBits - 1);
             ival = static_cast<int32_t>(((word + sign_bit) & mask)) - sign_bit;
          }
          else
+         #endif
          {
             ival = word;
          }
@@ -251,15 +261,18 @@ void CanMap::SendAll()
  */
 int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain, int8_t offset)
 {
+   if (canId > MAX_COB_ID) return CAN_ERR_INVALID_ID;
    return Add(canSendMap, param, canId, offsetBits, length, gain, offset);
 }
 
 int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain)
 {
+   if (canId > MAX_COB_ID) return CAN_ERR_INVALID_ID;
    return Add(canSendMap, param, canId, offsetBits, length, gain, 0);
 }
 
 /** \brief Map data from CAN bus to parameter
+ * To force registering an extended filter for a standard ID, add 0x20000000 to canId
  *
  * \param param Parameter index of parameter to be received
  * \param canId CAN identifier of consumed message
@@ -276,9 +289,14 @@ int CanMap::AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, 
  */
 int CanMap::AddRecv(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain, int8_t offset)
 {
-   int res = Add(canRecvMap, param, canId, offsetBits, length, gain, offset);
-   bool forceExtended = (canId & 0x800) != 0;
-   canHardware->RegisterUserMessage((canId & 0x7ff) + (forceExtended << 29));
+   bool forceExtended = (canId & CAN_FORCE_EXTENDED) != 0;
+   uint32_t moddedId = canId & ~CAN_FORCE_EXTENDED; //mask out force flag
+   if (moddedId > MAX_COB_ID) return CAN_ERR_INVALID_ID;
+   //Put force flag either in bit 11 (when mapping restricted to std IDs or bit 29 when allowing ext ids
+   moddedId |= SHIFT_FORCE_FLAG(forceExtended);
+
+   int res = Add(canRecvMap, param, moddedId, offsetBits, length, gain, offset);
+   canHardware->RegisterUserMessage(canId);
    return res;
 }
 
@@ -435,7 +453,10 @@ bool CanMap::FindMap(Param::PARAM_NUM param, uint32_t& canId, uint8_t& start, in
          {
             if (curPos->mapParam == param)
             {
+               bool forceExt = IS_EXT_FORCE(curMap->canId);
                canId = curMap->canId;
+               canId = MASK_EXT_FORCE(canId);
+               canId |= forceExt * CAN_FORCE_EXTENDED;
                start = curPos->offsetBits;
                length = curPos->numBits;
                gain = curPos->gain;
@@ -460,7 +481,10 @@ const CanMap::CANPOS* CanMap::GetMap(bool rx, uint8_t ididx, uint8_t itemidx, ui
    {
       if (itemidx == 0)
       {
+         bool forceExt = IS_EXT_FORCE(map->canId);
          canId = map->canId;
+         canId = MASK_EXT_FORCE(canId);
+         canId |= forceExt * CAN_FORCE_EXTENDED;
          return curPos;
       }
       itemidx--;
@@ -478,7 +502,11 @@ void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t,
       {
          forEachPosMap(curPos, curMap)
          {
-            callback((Param::PARAM_NUM)curPos->mapParam, curMap->canId, curPos->offsetBits, curPos->numBits, curPos->gain, curPos->offset, rx);
+            bool forceExt = IS_EXT_FORCE(curMap->canId);
+            uint32_t canId = curMap->canId;
+            canId = MASK_EXT_FORCE(canId);
+            canId |= forceExt * CAN_FORCE_EXTENDED;
+            callback((Param::PARAM_NUM)curPos->mapParam, canId, curPos->offsetBits, curPos->numBits, curPos->gain, curPos->offset, rx);
          }
       }
       done = rx;
@@ -675,7 +703,7 @@ CanMap::CANIDMAP* CanMap::FindById(CANIDMAP *canMap, uint32_t canId)
 {
    forEachCanMap(curMap, canMap)
    {
-      if ((curMap->canId & 0x7ff) == canId)
+      if ((curMap->canId & ~SHIFT_FORCE_FLAG(1)) == canId)
          return curMap;
    }
    return 0;

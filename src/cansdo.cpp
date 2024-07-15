@@ -358,7 +358,7 @@ void CanSdo::AddCanMap(CAN_SDO* sdo, bool rx)
 
       if (sdo->subIndex == 0)
       {
-         if (sdo->data <= MAX_COB_ID)
+         if (sdo->data < 0x20000000 || (sdo->data & ~CAN_FORCE_EXTENDED) < 0x800)
          {
             mapId = sdo->data;
             result = 0;
