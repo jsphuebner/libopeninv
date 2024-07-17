@@ -305,7 +305,7 @@ void Stm32Can::ConfigureFilters()
    {
       if (userIds[i] > 0x7ff)
       {
-         extIdList[extIdIndex] = userIds[i];
+         extIdList[extIdIndex] = userIds[i] & 0x1FFFFFFF;
          extIdIndex++;
       }
       else if (userMasks[i] != 0)
