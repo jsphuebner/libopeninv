@@ -703,7 +703,7 @@ CanMap::CANIDMAP* CanMap::FindById(CANIDMAP *canMap, uint32_t canId)
 {
    forEachCanMap(curMap, canMap)
    {
-      if ((curMap->canId & ~SHIFT_FORCE_FLAG(1)) == canId)
+      if ((curMap->canId & ~SHIFT_FORCE_FLAG(1)) == (canId & ~SHIFT_FORCE_FLAG(1)))
          return curMap;
    }
    return 0;
