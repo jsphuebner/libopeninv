@@ -63,7 +63,7 @@ class PiController
        * \param curVal currently measured value
        * \return new actuator value
        */
-      int32_t Run(s32fp curVal);
+      int32_t Run(s32fp curVal, int32_t feedForward = 0);
 
       /** Run controller to obtain a new actuator value, run only proportional part
        * \param curVal currently measured value
