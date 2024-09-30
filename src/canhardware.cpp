@@ -53,9 +53,11 @@ bool CanHardware::AddCallback(CanCallback* recv)
 }
 
 /** \brief Add CAN Id to user message list
+ * canId can be 0x20000000 + std id to force registering a filter for an extended ID
+ * even if the Id is < 0x7ff
  * \post Receive callback will be called when a message with this Id id received
  * \param canId CAN identifier of message to be user handled
- * \return true: success, false: already 10 messages registered
+ * \return true: success, false: already maximum messages registered
  *
  */
 bool CanHardware::RegisterUserMessage(uint32_t canId, uint32_t mask)

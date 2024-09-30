@@ -26,6 +26,7 @@
 #define CAN_ERR_INVALID_LEN -3
 #define CAN_ERR_MAXMESSAGES -4
 #define CAN_ERR_MAXITEMS -5
+#define CAN_FORCE_EXTENDED 0x20000000
 
 #ifndef MAX_ITEMS
 #define MAX_ITEMS 50
@@ -34,6 +35,10 @@
 #ifndef MAX_MESSAGES
 #define MAX_MESSAGES 10
 #endif
+
+#ifndef CAN_SIGNED
+#define CAN_SIGNED 0
+#endif // CAN_SIGNED
 
 #ifdef CAN_EXT
 #define MAX_COB_ID 0x1fffffff
