@@ -1,0 +1,30 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: build-linux
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout libopeninv
+        uses: actions/checkout@v4
+        with:
+          path: libopeninv
+
+      - name: Checkout libopencm3
+        uses: actions/checkout@v4
+        with:
+          repository: jsphuebner/libopencm3
+          path: libopencm3
+
+      - name: Build unit tests on host
+        run: |
+          cd libopeninv/test
+          make
+
+      - name: Run unit tests on host
+        run: |
+          libopeninv/test/test_libopeninv
