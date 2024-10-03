@@ -61,8 +61,8 @@ class CanMap: CanCallback
 
       CanMap(CanHardware* hw, bool loadFromFlash = true);
       CanHardware* GetHardware() { return canHardware; }
-      void HandleClear();
-      bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
+      void HandleClear() override;
+      void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) override;
       void Clear();
       void SendAll();
       int AddSend(Param::PARAM_NUM param, uint32_t canId, uint8_t offsetBits, int8_t length, float gain);

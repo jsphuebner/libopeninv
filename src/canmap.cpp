@@ -76,9 +76,9 @@ void CanMap::HandleClear()
    }
 }
 
-bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
+void CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
-   if (isSaving) return false; //Only handle mapped messages when not currently saving to flash
+   if (isSaving) return; //Only handle mapped messages when not currently saving to flash
 
    CANIDMAP *recvMap = FindById(canRecvMap, canId);
 
@@ -162,10 +162,7 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
          else
             Param::SetFloat((Param::PARAM_NUM)curPos->mapParam, val);
       }
-      return true;
    }
-
-   return false;
 }
 
 /** \brief Clear all defined messages

@@ -56,14 +56,12 @@ void CanObd2::HandleClear()
    canHardware->RegisterUserMessage(OBD2_PID_REQUEST + nodeId); // ECU specific address
 }
 
-bool CanObd2::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
+void CanObd2::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
    if ((canId == OBD2_PID_REQUEST) || (canId == (OBD2_PID_REQUEST + nodeId))) //OBD2 request
    {
       ProcessOBD2(data);
-      return true;
    }
-   return false;
 }
 
 void CanObd2::SetNodeId(uint8_t id)

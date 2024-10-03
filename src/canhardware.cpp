@@ -21,8 +21,8 @@
 class NullCallback: public CanCallback
 {
 public:
-   bool HandleRx(uint32_t, uint32_t*, uint8_t) { return false; }
-   void HandleClear() { }
+   void HandleRx(uint32_t, uint32_t*, uint8_t) override {}
+   void HandleClear() override { }
 };
 
 
@@ -96,7 +96,6 @@ void CanHardware::HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc)
 {
    for (int i = 0; i < nextCallbackIndex; i++)
    {
-      if (recvCallback[i]->HandleRx(canId, data, dlc))
-         break;
+      recvCallback[i]->HandleRx(canId, data, dlc);
    }
 }
