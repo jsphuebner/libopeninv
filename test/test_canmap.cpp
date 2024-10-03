@@ -416,6 +416,172 @@ static void receive_map_little_endian_32_bit_in_second_word()
     ASSERT(Param::GetInt(Param::ocurlim) == 42);
 }
 
+static void receive_map_big_endian_byte_in_first_word()
+{
+    canMap->AddRecv(Param::ocurlim, CanId, 7, -8, 1.0, 0);
+
+    SendFrame({ 42, 0, 0, 0, 0, 0, 0, 0 });
+
+    ASSERT(Param::GetInt(Param::ocurlim) == 42);
+}
+
+static void receive_map_big_endian_16_bit_in_first_word()
+{
+    canMap->AddRecv(Param::ocurlim, CanId, 23, -16, 1.0, 0);
+
+    SendFrame({ 0, 0, 42, 0, 0, 0, 0, 0 });
+
+    ASSERT(Param::GetInt(Param::ocurlim) == 42);
+}
+
+static void receive_map_big_endian_31_bit_in_first_word()
+{
+    canMap->AddRecv(Param::ocurlim, CanId, 31, -31, 1.0, 0);
+
+    SendFrame({ 0x80, 0, 0, 42, 0x80, 0, 0, 0 });
+
+    ASSERT(Param::GetInt(Param::ocurlim) == 42);
+}
+
+static void receive_map_big_endian_32_bit_in_first_word()
+{
+    canMap->AddRecv(Param::ocurlim, CanId, 31, -32, 1.0, 0);
+
+    SendFrame({ 0, 0, 0, 42, 0, 0, 0, 0 });
+
+    ASSERT(Param::GetInt(Param::ocurlim) == 42);
+}
+
+static void receive_map_little_endian_single_bit_first_bit()
+{
+    canMap->AddRecv(Param::ocurlim, CanId, 0, 1, 1.0, 0);
+
+    SendFrame({ 0x1, 0, 0, 0, 0, 0, 0, 0 });
+    ASSERT(Param::GetBool(Param::ocurlim));
+
+    SendFrame({ 0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff });
+    ASSERT(!Param::GetBool(Param::ocurlim));
+}
+
+static void receive_map_big_endian_single_bit_first_bit()
+{
+    canMap->AddRecv(Param::ocurlim, CanId, 0, -1, 1.0, 0);
+
+    SendFrame({ 0x80, 0, 0, 0, 0, 0, 0, 0 });
+    ASSERT(Param::GetBool(Param::ocurlim));
+
+    SendFrame({ 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff });
+    ASSERT(!Param::GetBool(Param::ocurlim));
+}
+
+static void receive_map_little_endian_single_bit_last_bit()
+{
+    canMap->AddRecv(Param::ocurlim, CanId, 63, 1, 1.0, 0);
+
+    SendFrame({ 0, 0, 0, 0, 0, 0, 0, 0x80 });
+    ASSERT(Param::GetBool(Param::ocurlim));
+
+    SendFrame({ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f });
+    ASSERT(!Param::GetBool(Param::ocurlim));
+}
+
+static void receive_map_big_endian_single_bit_last_bit()
+{
+    canMap->AddRecv(Param::ocurlim, CanId, 63, -1, 1.0, 0);
+
+    SendFrame({ 0, 0, 0, 0, 0, 0, 0, 1 });
+    ASSERT(Param::GetBool(Param::ocurlim));
+
+    SendFrame({ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe });
+    ASSERT(!Param::GetBool(Param::ocurlim));
+}
+
+static void receive_map_little_endian_single_bit_in_first_word()
+{
+    canMap->AddRecv(Param::ocurlim, CanId, 21, 1, 1.0, 0);
+
+    SendFrame({ 0, 0, 0x20, 0, 0, 0, 0, 0 });
+    ASSERT(Param::GetBool(Param::ocurlim));
+
+    SendFrame({ 0xff, 0xff, 0xdf, 0xff, 0xff, 0xff, 0xff, 0xff });
+    ASSERT(!Param::GetBool(Param::ocurlim));
+}
+
+static void receive_map_little_endian_single_bit_in_second_word()
+{
+    canMap->AddRecv(Param::ocurlim, CanId, 53, 1, 1.0, 0);
+
+    SendFrame({ 0, 0, 0, 0, 0, 0, 0x20, 0 });
+    ASSERT(Param::GetBool(Param::ocurlim));
+
+    SendFrame({ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xdf, 0xff });
+    ASSERT(!Param::GetBool(Param::ocurlim));
+}
+
+static void fail_to_map_with_invalid_can_id()
+{
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x800, 0, 16, 1.0) == CAN_ERR_INVALID_ID);
+
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x40000000, 0, 16, 1.0) ==
+        CAN_ERR_INVALID_ID);
+}
+
+static void fail_to_map_with_invalid_little_endian_offset()
+{
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, -1, 1, 1.0) == CAN_ERR_INVALID_OFS);
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 64, 1, 1.0) == CAN_ERR_INVALID_OFS);
+}
+
+static void fail_to_map_with_invalid_little_endian_length()
+{
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 0, 0, 1.0) == CAN_ERR_INVALID_LEN);
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 0, 33, 1.0) == CAN_ERR_INVALID_LEN);
+}
+
+static void fail_to_map_with_invalid_little_endian_total_struct_offset()
+{
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 63, 2, 1.0) == CAN_ERR_INVALID_OFS);
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 49, 16, 1.0) == CAN_ERR_INVALID_OFS);
+}
+
+static void fail_to_map_with_invalid_big_endian_offset()
+{
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, -1, -1, 1.0) == CAN_ERR_INVALID_OFS);
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 64, -1, 1.0) == CAN_ERR_INVALID_OFS);
+}
+
+static void fail_to_map_with_invalid_big_endian_length()
+{
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 0, -33, 1.0) == CAN_ERR_INVALID_LEN);
+}
+
+static void fail_to_map_with_invalid_big_endian_total_struct_offset()
+{
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 0, -2, 1.0) == CAN_ERR_INVALID_OFS);
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 14, -16, 1.0) ==
+        CAN_ERR_INVALID_OFS);
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 7, -32, 1.0) == CAN_ERR_INVALID_OFS);
+    ASSERT(
+        canMap->AddSend(Param::amp, 0x123, 30, -32, 1.0) ==
+        CAN_ERR_INVALID_OFS);
+}
+
+#if CAN_SIGNED
+
 static void receive_map_little_endian_negative_number_16_bit_in_first_word()
 {
     canMap->AddRecv(Param::ocurlim, CanId, 0, 16, 1.0, 0);
@@ -498,42 +664,6 @@ static void receive_map_little_endian_negative_number_16_bit_at_end_of_frame()
     SendFrame({ 0, 0, 0, 0, 0, 0, 0xfe, 0xff });
 
     ASSERT(Param::GetInt(Param::ocurlim) == -2);
-}
-
-static void receive_map_big_endian_byte_in_first_word()
-{
-    canMap->AddRecv(Param::ocurlim, CanId, 7, -8, 1.0, 0);
-
-    SendFrame({ 42, 0, 0, 0, 0, 0, 0, 0 });
-
-    ASSERT(Param::GetInt(Param::ocurlim) == 42);
-}
-
-static void receive_map_big_endian_16_bit_in_first_word()
-{
-    canMap->AddRecv(Param::ocurlim, CanId, 23, -16, 1.0, 0);
-
-    SendFrame({ 0, 0, 42, 0, 0, 0, 0, 0 });
-
-    ASSERT(Param::GetInt(Param::ocurlim) == 42);
-}
-
-static void receive_map_big_endian_31_bit_in_first_word()
-{
-    canMap->AddRecv(Param::ocurlim, CanId, 31, -31, 1.0, 0);
-
-    SendFrame({ 0x80, 0, 0, 42, 0x80, 0, 0, 0 });
-
-    ASSERT(Param::GetInt(Param::ocurlim) == 42);
-}
-
-static void receive_map_big_endian_32_bit_in_first_word()
-{
-    canMap->AddRecv(Param::ocurlim, CanId, 31, -32, 1.0, 0);
-
-    SendFrame({ 0, 0, 0, 42, 0, 0, 0, 0 });
-
-    ASSERT(Param::GetInt(Param::ocurlim) == 42);
 }
 
 static void receive_map_big_endian_negative_byte_in_first_word()
@@ -662,134 +792,299 @@ static void receive_map_big_endian_negative_32_bit_mostly_in_second_word()
     ASSERT(Param::GetInt(Param::ocurlim) == -2);
 }
 
-static void receive_map_little_endian_single_bit_first_bit()
+#define RECEIVE_TESTS                                                           \
+    receive_map_little_endian_negative_number_16_bit_in_first_word,             \
+        receive_map_little_endian_negative_number_24_bit_in_first_word,         \
+        receive_map_little_endian_negative_number_31_bit_in_first_word,         \
+        receive_map_little_endian_negative_number_32_bit_in_first_word,         \
+        receive_map_little_endian_negative_number_32_bit_in_second_word,        \
+        receive_map_little_endian_negative_number_32_bit_spanning_both_words,   \
+        receive_map_little_endian_negative_number_32_bit_mostly_in_first_word,  \
+        receive_map_little_endian_negative_number_32_bit_mostly_in_second_word, \
+        receive_map_little_endian_negative_number_16_bit_at_end_of_frame,       \
+        receive_map_big_endian_negative_byte_in_first_word,                     \
+        receive_map_big_endian_negative_16_bit_in_first_word,                   \
+        receive_map_big_endian_negative_24_bit_in_first_word,                   \
+        receive_map_big_endian_negative_31_bit_in_first_word,                   \
+        receive_map_big_endian_negative_32_bit_in_first_word,                   \
+        receive_map_big_endian_negative_byte_in_second_word,                    \
+        receive_map_big_endian_negative_16_bit_in_second_word,                  \
+        receive_map_big_endian_negative_24_bit_in_second_word,                  \
+        receive_map_big_endian_negative_32_bit_in_second_word,                  \
+        receive_map_big_endian_negative_number_24_bit_at_end_of_frame,          \
+        receive_map_big_endian_negative_16_bit_spanning_both_words,             \
+        receive_map_big_endian_negative_32_bit_spanning_both_words,             \
+        receive_map_big_endian_negative_32_bit_mostly_in_first_word,            \
+        receive_map_big_endian_negative_32_bit_mostly_in_second_word,
+
+#else // CAN_SIGNED
+
+static void receive_map_little_endian_12_bit_small_throttle_value()
 {
-    canMap->AddRecv(Param::ocurlim, CanId, 0, 1, 1.0, 0);
+    canMap->AddRecv(Param::pot, CanId, 0, 12, 1.0, 0);
 
-    SendFrame({ 0x1, 0, 0, 0, 0, 0, 0, 0 });
-    ASSERT(Param::GetBool(Param::ocurlim));
+    SendFrame({ 0x64, 0, 0, 0, 0, 0, 0, 0 });
 
-    SendFrame({ 0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff });
-    ASSERT(!Param::GetBool(Param::ocurlim));
+    ASSERT(Param::GetInt(Param::pot) == 100);
 }
 
-static void receive_map_big_endian_single_bit_first_bit()
+static void receive_map_little_endian_12_bit_large_throttle_value()
 {
-    canMap->AddRecv(Param::ocurlim, CanId, 0, -1, 1.0, 0);
+    canMap->AddRecv(Param::pot, CanId, 0, 12, 1.0, 0);
 
-    SendFrame({ 0x80, 0, 0, 0, 0, 0, 0, 0 });
-    ASSERT(Param::GetBool(Param::ocurlim));
+    SendFrame({ 0xAC, 0x0d, 0, 0, 0, 0, 0, 0 });
 
-    SendFrame({ 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff });
-    ASSERT(!Param::GetBool(Param::ocurlim));
+    ASSERT(Param::GetInt(Param::pot) == 3500);
 }
 
-static void receive_map_little_endian_single_bit_last_bit()
+static void receive_map_little_endian_large_number_16_bit_in_first_word()
 {
-    canMap->AddRecv(Param::ocurlim, CanId, 63, 1, 1.0, 0);
+    canMap->AddRecv(Param::amp, CanId, 0, 16, 1.0, 0);
 
-    SendFrame({ 0, 0, 0, 0, 0, 0, 0, 0x80 });
-    ASSERT(Param::GetBool(Param::ocurlim));
+    SendFrame({ 0xdc, 0xfe, 0, 0, 0, 0, 0, 0 });
 
-    SendFrame({ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f });
-    ASSERT(!Param::GetBool(Param::ocurlim));
+    ASSERT(Param::GetInt(Param::amp) == 0xfedc);
 }
 
-static void receive_map_big_endian_single_bit_last_bit()
+static void receive_map_little_endian_large_number_24_bit_in_first_word()
 {
-    canMap->AddRecv(Param::ocurlim, CanId, 63, -1, 1.0, 0);
+    canMap->AddRecv(Param::amp, CanId, 0, 24, 1.0, 0);
 
-    SendFrame({ 0, 0, 0, 0, 0, 0, 0, 1 });
-    ASSERT(Param::GetBool(Param::ocurlim));
+    SendFrame({ 0xba, 0xdc, 0xfe, 0, 0, 0, 0, 0 });
 
-    SendFrame({ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe });
-    ASSERT(!Param::GetBool(Param::ocurlim));
+    ASSERT(Param::GetInt(Param::amp) == 0xfedcba);
 }
 
-static void receive_map_little_endian_single_bit_in_first_word()
+static void receive_map_little_endian_large_number_31_bit_in_first_word()
 {
-    canMap->AddRecv(Param::ocurlim, CanId, 21, 1, 1.0, 0);
+    canMap->AddRecv(Param::amp, CanId, 1, 31, 1.0 / 256, 0);
 
-    SendFrame({ 0, 0, 0x20, 0, 0, 0, 0, 0 });
-    ASSERT(Param::GetBool(Param::ocurlim));
+    SendFrame({ 0xfe, 0xff, 0xff, 0xff, 0, 0, 0, 0 });
 
-    SendFrame({ 0xff, 0xff, 0xdf, 0xff, 0xff, 0xff, 0xff, 0xff });
-    ASSERT(!Param::GetBool(Param::ocurlim));
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x800000);
 }
 
-static void receive_map_little_endian_single_bit_in_second_word()
+static void receive_map_little_endian_large_number_32_bit_in_first_word()
 {
-    canMap->AddRecv(Param::ocurlim, CanId, 53, 1, 1.0, 0);
+    canMap->AddRecv(Param::amp, CanId, 0, 32, 1.0 / 256, 0);
 
-    SendFrame({ 0, 0, 0, 0, 0, 0, 0x20, 0 });
-    ASSERT(Param::GetBool(Param::ocurlim));
+    SendFrame({ 0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0 });
 
-    SendFrame({ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xdf, 0xff });
-    ASSERT(!Param::GetBool(Param::ocurlim));
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x1000000);
 }
 
-static void fail_to_map_with_invalid_can_id()
+static void receive_map_little_endian_large_number_32_bit_in_second_word()
 {
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x800, 0, 16, 1.0) == CAN_ERR_INVALID_ID);
+    canMap->AddRecv(Param::amp, CanId, 32, 32, 1.0 / 256, 0);
 
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x40000000, 0, 16, 1.0) ==
-        CAN_ERR_INVALID_ID);
+    SendFrame({ 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff });
+
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x1000000);
 }
 
-static void fail_to_map_with_invalid_little_endian_offset()
+static void receive_map_little_endian_large_number_32_bit_spanning_both_words()
 {
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, -1, 1, 1.0) == CAN_ERR_INVALID_OFS);
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 64, 1, 1.0) == CAN_ERR_INVALID_OFS);
+    canMap->AddRecv(Param::amp, CanId, 16, 32, 1.0 / 256, 0);
+
+    SendFrame({ 0, 0, 0xff, 0xff, 0xff, 0xff, 0, 0 });
+
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x1000000);
 }
 
-static void fail_to_map_with_invalid_little_endian_length()
+static void receive_map_little_endian_large_number_32_bit_mostly_in_first_word()
 {
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 0, 0, 1.0) == CAN_ERR_INVALID_LEN);
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 0, 33, 1.0) == CAN_ERR_INVALID_LEN);
+    canMap->AddRecv(Param::amp, CanId, 8, 32, 1.0 / 256, 0);
+
+    SendFrame({ 0, 0xff, 0xff, 0xff, 0xff, 0, 0, 0 });
+
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x1000000);
 }
 
-static void fail_to_map_with_invalid_little_endian_total_struct_offset()
+static void
+receive_map_little_endian_large_number_32_bit_mostly_in_second_word()
 {
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 63, 2, 1.0) == CAN_ERR_INVALID_OFS);
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 49, 16, 1.0) == CAN_ERR_INVALID_OFS);
+    canMap->AddRecv(Param::amp, CanId, 24, 32, 1.0 / 256, 0);
+
+    SendFrame({ 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 0 });
+
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x1000000);
 }
 
-static void fail_to_map_with_invalid_big_endian_offset()
+static void receive_map_little_endian_large_number_16_bit_at_end_of_frame()
 {
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, -1, -1, 1.0) == CAN_ERR_INVALID_OFS);
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 64, -1, 1.0) == CAN_ERR_INVALID_OFS);
+    canMap->AddRecv(Param::amp, CanId, 48, 16, 1.0, 0);
+
+    SendFrame({ 0, 0, 0, 0, 0, 0, 0xdc, 0xfe });
+
+    ASSERT(Param::GetInt(Param::amp) == 65244);
 }
 
-static void fail_to_map_with_invalid_big_endian_length()
+static void receive_map_big_endian_large_byte_in_first_word()
 {
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 0, -33, 1.0) == CAN_ERR_INVALID_LEN);
+    canMap->AddRecv(Param::amp, CanId, 7, -8, 1.0, 0);
+
+    SendFrame({ 0xfe, 0, 0, 0, 0, 0, 0, 0 });
+
+    ASSERT(Param::GetInt(Param::amp) == 0xfe);
 }
 
-static void fail_to_map_with_invalid_big_endian_total_struct_offset()
+static void receive_map_big_endian_large_16_bit_in_first_word()
 {
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 0, -2, 1.0) == CAN_ERR_INVALID_OFS);
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 14, -16, 1.0) ==
-        CAN_ERR_INVALID_OFS);
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 7, -32, 1.0) ==
-        CAN_ERR_INVALID_OFS);
-    ASSERT(
-        canMap->AddSend(Param::amp, 0x123, 30, -32, 1.0) ==
-        CAN_ERR_INVALID_OFS);
+    canMap->AddRecv(Param::amp, CanId, 23, -16, 1.0, 0);
+
+    SendFrame({ 0, 0xfe, 0xdc, 0, 0, 0, 0, 0 });
+
+    ASSERT(Param::GetInt(Param::amp) == 0xfedc);
 }
+
+static void receive_map_big_endian_large_24_bit_in_first_word()
+{
+    canMap->AddRecv(Param::amp, CanId, 23, -24, 1.0, 0);
+
+    SendFrame({ 0xfe, 0xdc, 0xba, 0, 0, 0, 0, 0 });
+
+    ASSERT(Param::GetInt(Param::amp) == 0xfedcba);
+}
+
+static void receive_map_big_endian_large_31_bit_in_first_word()
+{
+    canMap->AddRecv(Param::amp, CanId, 31, -31, 1.0 / 256, 0);
+
+    SendFrame({ 0x7f, 0xff, 0xff, 0xff, 0, 0, 0, 0 });
+
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x800000);
+}
+
+static void receive_map_big_endian_large_32_bit_in_first_word()
+{
+    canMap->AddRecv(Param::amp, CanId, 31, -32, 1.0 / 256, 0);
+
+    SendFrame({ 0xff, 0xff, 0xff, 0xfe, 0, 0, 0, 0 });
+
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x1000000);
+}
+
+static void receive_map_big_endian_large_byte_in_second_word()
+{
+    canMap->AddRecv(Param::amp, CanId, 39, -8, 1.0, 0);
+
+    SendFrame({ 0, 0, 0, 0, 0xfe, 0, 0, 0 });
+
+    ASSERT(Param::GetInt(Param::amp) == 0xfe);
+}
+
+static void receive_map_big_endian_large_16_bit_in_second_word()
+{
+    canMap->AddRecv(Param::amp, CanId, 47, -16, 1.0, 0);
+
+    SendFrame({ 0, 0, 0, 0, 0xfe, 0xdc, 0, 0 });
+
+    ASSERT(Param::GetInt(Param::amp) == 0xfedc);
+}
+
+static void receive_map_big_endian_large_24_bit_in_second_word()
+{
+    canMap->AddRecv(Param::amp, CanId, 55, -24, 1.0, 0);
+
+    SendFrame({ 0, 0, 0, 0, 0xfe, 0xdc, 0xba, 0 });
+
+    ASSERT(Param::GetInt(Param::amp) == 0xfedcba);
+}
+
+static void receive_map_big_endian_large_32_bit_in_second_word()
+{
+    canMap->AddRecv(Param::amp, CanId, 63, -32, 1.0 / 256, 0);
+
+    SendFrame({ 0, 0, 0, 0, 0xff, 0xff, 0xff, 0xff });
+
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x1000000);
+}
+
+static void receive_map_big_endian_large_number_24_bit_at_end_of_frame()
+{
+    canMap->AddRecv(Param::amp, CanId, 63, -24, 1.0, 0);
+
+    SendFrame({ 0, 0, 0, 0, 0, 0xfe, 0xdc, 0xba });
+
+    ASSERT(Param::GetInt(Param::amp) == 0xfedcba);
+}
+
+static void receive_map_big_endian_large_16_bit_spanning_both_words()
+{
+    canMap->AddRecv(Param::amp, CanId, 39, -16, 1.0, 0);
+
+    SendFrame({ 0, 0, 0, 0xfe, 0xdc, 0, 0, 0 });
+
+    ASSERT(Param::GetInt(Param::amp) == 0xfedc);
+}
+
+static void receive_map_big_endian_large_32_bit_spanning_both_words()
+{
+    canMap->AddRecv(Param::amp, CanId, 47, -32, 1.0 / 256, 0);
+
+    SendFrame({ 0, 0, 0xff, 0xff, 0xff, 0xff, 0, 0 });
+
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x1000000);
+}
+
+static void receive_map_big_endian_large_32_bit_mostly_in_first_word()
+{
+    canMap->AddRecv(Param::amp, CanId, 39, -32, 1.0 / 256, 0);
+
+    SendFrame({ 0, 0xff, 0xff, 0xff, 0xff, 0, 0, 0 });
+
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x1000000);
+}
+
+static void receive_map_big_endian_large_32_bit_mostly_in_second_word()
+{
+    canMap->AddRecv(Param::amp, CanId, 55, -32, 1.0 / 256, 0);
+
+    SendFrame({ 0, 0, 0, 0xff, 0xff, 0xff, 0xff, 0 });
+
+    // Slight rounding due to moving through a float
+    ASSERT(Param::GetInt(Param::amp) == 0x1000000);
+}
+
+#define RECEIVE_TESTS                                                          \
+    receive_map_little_endian_12_bit_small_throttle_value,                     \
+        receive_map_little_endian_12_bit_large_throttle_value,                 \
+        receive_map_little_endian_large_number_16_bit_in_first_word,           \
+        receive_map_little_endian_large_number_24_bit_in_first_word,           \
+        receive_map_little_endian_large_number_31_bit_in_first_word,           \
+        receive_map_little_endian_large_number_32_bit_in_first_word,           \
+        receive_map_little_endian_large_number_32_bit_in_second_word,          \
+        receive_map_little_endian_large_number_32_bit_spanning_both_words,     \
+        receive_map_little_endian_large_number_32_bit_mostly_in_first_word,    \
+        receive_map_little_endian_large_number_32_bit_mostly_in_second_word,   \
+        receive_map_little_endian_large_number_16_bit_at_end_of_frame,         \
+        receive_map_big_endian_large_byte_in_first_word,                       \
+        receive_map_big_endian_large_16_bit_in_first_word,                     \
+        receive_map_big_endian_large_24_bit_in_first_word,                     \
+        receive_map_big_endian_large_31_bit_in_first_word,                     \
+        receive_map_big_endian_large_32_bit_in_first_word,                     \
+        receive_map_big_endian_large_byte_in_second_word,                      \
+        receive_map_big_endian_large_16_bit_in_second_word,                    \
+        receive_map_big_endian_large_24_bit_in_second_word,                    \
+        receive_map_big_endian_large_32_bit_in_second_word,                    \
+        receive_map_big_endian_large_number_24_bit_at_end_of_frame,            \
+        receive_map_big_endian_large_16_bit_spanning_both_words,               \
+        receive_map_big_endian_large_32_bit_spanning_both_words,               \
+        receive_map_big_endian_large_32_bit_mostly_in_first_word,              \
+        receive_map_big_endian_large_32_bit_mostly_in_second_word,
+
+#endif // CAN_SIGNED
 
 REGISTER_TEST(
     CanMapTest,
@@ -825,33 +1120,10 @@ REGISTER_TEST(
     receive_map_little_endian_16_bit_in_first_word,
     receive_map_little_endian_32_bit_in_first_word,
     receive_map_little_endian_32_bit_in_second_word,
-    receive_map_little_endian_negative_number_16_bit_in_first_word,
-    receive_map_little_endian_negative_number_24_bit_in_first_word,
-    receive_map_little_endian_negative_number_31_bit_in_first_word,
-    receive_map_little_endian_negative_number_32_bit_in_first_word,
-    receive_map_little_endian_negative_number_32_bit_in_second_word,
-    receive_map_little_endian_negative_number_32_bit_spanning_both_words,
-    receive_map_little_endian_negative_number_32_bit_mostly_in_first_word,
-    receive_map_little_endian_negative_number_32_bit_mostly_in_second_word,
-    receive_map_little_endian_negative_number_16_bit_at_end_of_frame,
     receive_map_big_endian_byte_in_first_word,
     receive_map_big_endian_16_bit_in_first_word,
     receive_map_big_endian_31_bit_in_first_word,
     receive_map_big_endian_32_bit_in_first_word,
-    receive_map_big_endian_negative_byte_in_first_word,
-    receive_map_big_endian_negative_16_bit_in_first_word,
-    receive_map_big_endian_negative_24_bit_in_first_word,
-    receive_map_big_endian_negative_31_bit_in_first_word,
-    receive_map_big_endian_negative_32_bit_in_first_word,
-    receive_map_big_endian_negative_byte_in_second_word,
-    receive_map_big_endian_negative_16_bit_in_second_word,
-    receive_map_big_endian_negative_24_bit_in_second_word,
-    receive_map_big_endian_negative_32_bit_in_second_word,
-    receive_map_big_endian_negative_number_24_bit_at_end_of_frame,
-    receive_map_big_endian_negative_16_bit_spanning_both_words,
-    receive_map_big_endian_negative_32_bit_spanning_both_words,
-    receive_map_big_endian_negative_32_bit_mostly_in_first_word,
-    receive_map_big_endian_negative_32_bit_mostly_in_second_word,
     receive_map_little_endian_single_bit_first_bit,
     receive_map_big_endian_single_bit_first_bit,
     receive_map_little_endian_single_bit_last_bit,
@@ -864,4 +1136,5 @@ REGISTER_TEST(
     fail_to_map_with_invalid_little_endian_total_struct_offset,
     fail_to_map_with_invalid_big_endian_offset,
     fail_to_map_with_invalid_big_endian_length,
-    fail_to_map_with_invalid_big_endian_total_struct_offset);
+    fail_to_map_with_invalid_big_endian_total_struct_offset,
+    RECEIVE_TESTS);

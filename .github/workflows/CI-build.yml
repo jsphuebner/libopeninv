@@ -22,9 +22,16 @@ jobs:
 
       - name: Build unit tests on host
         run: |
-          cd libopeninv/test
-          make
+          make -C libopeninv/test clean all CAN_SIGNED=0
 
       - name: Run unit tests on host
+        run: |
+          libopeninv/test/test_libopeninv
+
+      - name: Build unit tests on host (Signed CAN receive)
+        run: |
+          make -C libopeninv/test clean all CAN_SIGNED=1
+
+      - name: Run unit tests on host (Signed CAN receive)
         run: |
           libopeninv/test/test_libopeninv
