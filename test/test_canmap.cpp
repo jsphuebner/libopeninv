@@ -1057,6 +1057,38 @@ static void receive_map_big_endian_large_32_bit_mostly_in_second_word()
     ASSERT(Param::GetInt(Param::amp) == 0x1000000);
 }
 
+static void create_and_delete_complex_map_once()
+{
+    canMap->AddSend(Param::amp, 257, 24, 8, -1.00, 0);
+    canMap->AddSend(Param::pot, 257, 0, 8, 1.00, 0);
+    canMap->AddSend(Param::pot, 257, 8, 8, -1.00, 0);
+    canMap->AddSend(Param::amp, 257, 16, 8, 1.00, 0);
+    canMap->AddSend(Param::pot, 819, 0, 8, 1.00, 0);
+    canMap->AddSend(Param::pot, 819, 8, 8, -1.00, 0);
+    canMap->AddSend(Param::amp, 819, 16, 8, 1.00, 0);
+    canMap->AddSend(Param::amp, 819, 24, 8, -1.00, 0);
+    canMap->AddSend(Param::ocurlim, 3, 23, -16, 1.00, 0);
+    canMap->AddSend(Param::ocurlim, 2, 8, 16, 1.00, 0);
+    canMap->AddSend(Param::amp, 259, 31, -16, 1.00, 0);
+    canMap->AddSend(Param::pot, 259, 15, -16, 1.00, 0);
+    int count = canMap->AddSend(Param::pot, 261, 31, -32, 1.00, 0);
+    ASSERT(count == 6);
+
+    count = canMap->AddRecv(Param::ocurlim, 1, 23, -16, 1.00, 0);
+    ASSERT(count == 1);
+
+    int deleted = 0;
+    for (int i = 0; i < 13; i++)
+    {
+        deleted += canMap->Remove(false, 0, 0);
+    }
+    ASSERT(deleted == 13);
+    ASSERT(canMap->Remove(false, 0, 0) == 0);
+
+    ASSERT(canMap->Remove(true, 0, 0) == 1);
+    ASSERT(canMap->Remove(true, 0, 0) == 0);
+}
+
 #define RECEIVE_TESTS                                                          \
     receive_map_little_endian_12_bit_small_throttle_value,                     \
         receive_map_little_endian_12_bit_large_throttle_value,                 \
@@ -1137,4 +1169,5 @@ REGISTER_TEST(
     fail_to_map_with_invalid_big_endian_offset,
     fail_to_map_with_invalid_big_endian_length,
     fail_to_map_with_invalid_big_endian_total_struct_offset,
+    create_and_delete_complex_map_once,
     RECEIVE_TESTS);
