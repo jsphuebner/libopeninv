@@ -76,9 +76,9 @@ void CanMap::HandleClear()
    }
 }
 
-bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
+void CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
-   if (isSaving) return false; //Only handle mapped messages when not currently saving to flash
+   if (isSaving) return; //Only handle mapped messages when not currently saving to flash
 
    CANIDMAP *recvMap = FindById(canRecvMap, canId);
 
@@ -86,7 +86,6 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
    {
       forEachPosMap(curPos, recvMap)
       {
-         float val;
          uint32_t word;
          uint8_t pos = curPos->offsetBits;
          uint8_t numBits = ABS(curPos->numBits);
@@ -138,22 +137,24 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
          uint32_t mask = (1L << numBits) - 1;
          word = (word >> pos) & mask;
 
-         // sign-extend our arbitrary sized integer out to 32-bits but only if
-         // it is bigger than a single bit
-         int32_t ival;
          #if CAN_SIGNED
-         if (numBits > 1)
-         {
-            uint32_t sign_bit = 1L << (numBits - 1);
-            ival = static_cast<int32_t>(((word + sign_bit) & mask)) - sign_bit;
-         }
-         else
+            // sign-extend our arbitrary sized integer out to 32-bits but only if
+            // it is bigger than a single bit
+            int32_t ival;
+            if (numBits > 1)
+            {
+               uint32_t sign_bit = 1L << (numBits - 1);
+               ival = static_cast<int32_t>(((word + sign_bit) & mask)) - sign_bit;
+            }
+            else
+            {
+               ival = word;
+            }
+            float val = ival;
+         #else
+            float val = word;
          #endif
-         {
-            ival = word;
-         }
 
-         val = ival;
          val += curPos->offset;
          val *= curPos->gain;
 
@@ -162,10 +163,7 @@ bool CanMap::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
          else
             Param::SetFloat((Param::PARAM_NUM)curPos->mapParam, val);
       }
-      return true;
    }
-
-   return false;
 }
 
 /** \brief Clear all defined messages

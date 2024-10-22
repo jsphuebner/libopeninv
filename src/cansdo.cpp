@@ -87,20 +87,17 @@ void CanSdo::HandleClear()
       canHardware->RegisterUserMessage(SDO_REP_ID_BASE + remoteNodeId);
 }
 
-bool CanSdo::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
+void CanSdo::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
    if (canId == (SDO_REQ_ID_BASE + nodeId)) //SDO request
    {
       ProcessSDO(data);
-      return true;
    }
    else if (canId == (SDO_REP_ID_BASE + remoteNodeId))
    {
       sdoReplyValid = (data[0] & 0xFF) != SDO_ABORT;
       sdoReplyData = data[1];
-      return true;
    }
-   return false;
 }
 
 void CanSdo::SDOWrite(uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data)

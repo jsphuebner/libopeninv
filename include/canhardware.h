@@ -32,7 +32,7 @@
 class CanCallback
 {
 public:
-   virtual bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) = 0;
+   virtual void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) = 0;
    virtual void HandleClear() = 0;
 };
 
@@ -40,8 +40,8 @@ class FunctionPointerCallback: public CanCallback
 {
 public:
    FunctionPointerCallback(bool (*r)(uint32_t, uint32_t*, uint8_t), void (*c)()) : recv(r), clear(c) { };
-   bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) { return recv(canId, data, dlc); }
-   void HandleClear() { clear(); }
+   void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) override { recv(canId, data, dlc); }
+   void HandleClear() override { clear(); }
 
 private:
    bool (*recv)(uint32_t, uint32_t*, uint8_t);

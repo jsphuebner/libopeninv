@@ -1,7 +1,8 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the stm32-sine project.
  *
- * Copyright (C) 2018 Johannes Huebner <dev@johanneshuebner.com>
+ * Copyright (C) 2021 Johannes Huebner <dev@johanneshuebner.com>
+ * Copyright (C) 2024 David J. Fiddes <D.J@fiddes.net>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,25 +17,29 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef CANOBD2_H
-#define CANOBD2_H
-#include "params.h"
-#include "canhardware.h"
+#include "stub_canhardware.h"
 
-class CanObd2: CanCallback
+CanCallback* vcuCan = nullptr;
+uint32_t vcuCanId;
+
+CanHardware::CanHardware()
+{}
+
+bool CanHardware::AddCallback(CanCallback* cb)
 {
-   public:
-      /** Default constructor */
-      CanObd2(CanHardware* hw);
-      void HandleClear() override;
-      void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) override;
-      void SetNodeId(uint8_t id);
+   vcuCan = cb;
+   return true;
+}
 
-   private:
-      CanHardware* canHardware;
-      uint8_t nodeId;
+bool CanHardware::RegisterUserMessage(uint32_t canId, uint32_t mask)
+{
+   vcuCanId = canId;
+   return true;
+}
 
-      void ProcessOBD2(uint32_t data[2]);
-};
+void CanHardware::ClearUserMessages() {}
 
-#endif // CANOBD2_H
+void CanHardware::HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc)
+{
+   vcuCan->HandleRx(canId, data, dlc);
+}

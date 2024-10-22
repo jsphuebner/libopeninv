@@ -1,7 +1,7 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the libopeninv project.
  *
- * Copyright (C) 2018 Johannes Huebner <dev@johanneshuebner.com>
+ * Copyright (C) 2024 David J. Fiddes <D.J@fiddes.net>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,25 +16,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef CANOBD2_H
-#define CANOBD2_H
-#include "params.h"
-#include "canhardware.h"
+#ifndef HWDEFS_H
+#define HWDEFS_H
 
-class CanObd2: CanCallback
-{
-   public:
-      /** Default constructor */
-      CanObd2(CanHardware* hw);
-      void HandleClear() override;
-      void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) override;
-      void SetNodeId(uint8_t id);
+// Minimal project hardware defines to test libopeninv
 
-   private:
-      CanHardware* canHardware;
-      uint8_t nodeId;
+#define FLASH_PAGE_SIZE 1024
 
-      void ProcessOBD2(uint32_t data[2]);
-};
+#define CAN1_BLKNUM 2 // second to last block of 1k
 
-#endif // CANOBD2_H
+#endif

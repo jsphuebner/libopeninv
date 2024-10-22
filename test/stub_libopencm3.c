@@ -1,7 +1,7 @@
 /*
- * This file is part of the tumanako_vc project.
+ * This file is part of the stm32-sine project.
  *
- * Copyright (C) 2018 Johannes Huebner <dev@johanneshuebner.com>
+ * Copyright (C) 2024 David J. Fiddes <D.J@fiddes.net>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,25 +16,43 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef CANOBD2_H
-#define CANOBD2_H
-#include "params.h"
-#include "canhardware.h"
+#include "stdint.h"
 
-class CanObd2: CanCallback
+void flash_unlock(void)
 {
-   public:
-      /** Default constructor */
-      CanObd2(CanHardware* hw);
-      void HandleClear() override;
-      void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) override;
-      void SetNodeId(uint8_t id);
+}
 
-   private:
-      CanHardware* canHardware;
-      uint8_t nodeId;
+void flash_lock(void)
+{
+}
 
-      void ProcessOBD2(uint32_t data[2]);
-};
+void flash_set_ws(uint32_t ws)
+{
+}
 
-#endif // CANOBD2_H
+void flash_program_word(uint32_t address, uint32_t data)
+{
+}
+
+void flash_erase_page(uint32_t page_address)
+{
+}
+
+uint16_t desig_get_flash_size(void)
+{
+    return 8;
+}
+
+uint32_t crc_calculate(uint32_t data)
+{
+    return 0xaa55;
+}
+
+uint32_t crc_calculate_block(uint32_t *datap, int size)
+{
+    return 0xaaaa5555;
+}
+
+void crc_reset(void)
+{
+}
