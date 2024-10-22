@@ -344,6 +344,14 @@ itemfound:
    return 0;
 }
 
+/** \brief Removes mapped item with given index from specified CAN message
+ *
+ * \param rx bool true delete from RX map, false otherwise
+ * \param messageIdx uint8_t message to delete from
+ * \param itemidx uint8_t
+ * \return int
+ *
+ */
 int CanMap::Remove(bool rx, uint8_t messageIdx, uint8_t itemidx)
 {
    CANPOS *lastPosMap = 0;
@@ -355,16 +363,16 @@ int CanMap::Remove(bool rx, uint8_t messageIdx, uint8_t itemidx)
    {
       if (itemidx == 0)
       {
-         if (lastPosMap != 0)
+         if (lastPosMap != 0) //We deleted a none-first item (including the last)
          {
-            lastPosMap->next = curPos->next;
+            lastPosMap->next = curPos->next; //Let the item before point to the item after.
+            //If there is no next item we apply the MAX_ITEMS marker inherently
          }
-         else if (curPos->next != MAX_ITEMS)
+         else if (curPos->next != MAX_ITEMS) //We deleted the first item of the message but there are items left
          {
-            //We deleted the first item of the message -> move second item to first
-            map->first = curPos->next;
+            map->first = curPos->next; // move second item to first
          }
-         else
+         else //We deleted the last item of the message, so the entire message must be discarded
          {
             //If curPos was the last mapped item, we have to fill in the blank
             //by moving the last mapped item here.
@@ -378,9 +386,10 @@ int CanMap::Remove(bool rx, uint8_t messageIdx, uint8_t itemidx)
             //we might move the message to itself but that's ok
             map->first = map[lastIdx].first;
             map->canId = map[lastIdx].canId;
-            //mark last message ununsed
+            //mark last message unused
             map[lastIdx].first = MAX_ITEMS;
          }
+         curPos->next = ITEM_UNSET; //Mark as unused
          return 1;
       }
       itemidx--;
