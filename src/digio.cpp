@@ -24,10 +24,10 @@
 #define DIG_IO_ON  1
 
 #undef DIG_IO_ENTRY
-#define DIG_IO_ENTRY(name, port, pin, mode) DigIo DigIo::name;
+#define DIG_IO_ENTRY(name, port, pin, mode, invert) DigIo DigIo::name;
 DIG_IO_LIST
 
-void DigIo::Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode)
+void DigIo::Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode, bool invert)
 {
    uint8_t mode = GPIO_MODE_INPUT;
    uint8_t cnf = GPIO_CNF_INPUT_PULL_UPDOWN;
@@ -35,6 +35,7 @@ void DigIo::Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode)
 
    _port = port;
    _pin = pin;
+   _invert = invert;
 
    switch (pinMode)
    {
@@ -72,4 +73,3 @@ void DigIo::Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode)
    }
    gpio_set_mode(port, mode, cnf, pin);
 }
-

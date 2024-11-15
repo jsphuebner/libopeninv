@@ -39,7 +39,7 @@ namespace PinMode {
 class DigIo
 {
 public:
-   #define DIG_IO_ENTRY(name, port, pin, mode) static DigIo name;
+   #define DIG_IO_ENTRY(name, port, pin, mode, invert) static DigIo name;
    DIG_IO_LIST
    #undef DIG_IO_ENTRY
 
@@ -47,8 +47,12 @@ public:
     * @param[in] port port to use for this pin
     * @param[in] pin port-pin to use for this pin
     * @param[in] mode pinmode to use
+    * @param[in] invert input or not to use
     */
-   void Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode);
+   void Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode, bool invert);
+
+   void Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode){Configure(port, pin, pinMode, 0);}
+
 
    /**
    * Get pin value
@@ -56,7 +60,14 @@ public:
    * @param[in] io pin index
    * @return pin value
    */
-   bool Get() { return gpio_get(_port, _pin) > 0; }
+   bool Get()
+   {
+       if(_invert)
+        {
+            return !(gpio_get(_port, _pin) > 0);
+        }
+       return gpio_get(_port, _pin) > 0;
+   }
 
    /**
    * Set pin high
@@ -82,9 +93,10 @@ public:
 private:
    uint32_t _port;
    uint16_t _pin;
+   bool _invert;
 };
 //Configure all digio objects from the given list
-#define DIG_IO_ENTRY(name, port, pin, mode) DigIo::name.Configure(port, pin, mode);
+#define DIG_IO_ENTRY(name, port, pin, mode, invert) DigIo::name.Configure(port, pin, mode, invert);
 #define DIG_IO_CONFIGURE(l) l
 
 #endif // DIGIO_H_INCLUDED
