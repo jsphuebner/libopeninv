@@ -61,14 +61,7 @@ public:
    * @param[in] io pin index
    * @return pin value
    */
-   bool Get()
-   {
-       if(_invert)
-        {
-            return !(gpio_get(_port, _pin) > 0);
-        }
-       return gpio_get(_port, _pin) > 0;
-   }
+   bool Get() { return (gpio_get(_port, _pin) > 0) ^ _invert; }
 
    /**
    * Set pin high
