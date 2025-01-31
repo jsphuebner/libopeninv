@@ -25,6 +25,12 @@
 
 #undef DIG_IO_ENTRY
 #define DIG_IO_ENTRY(name, port, pin, mode) DigIo DigIo::name;
+
+#ifdef BUSIO_ENABLED    
+#undef  BUS_IO_ENTRY
+#define BUS_IO_ENTRY(name, busType, channel, mode) BusIo DigIo::name;
+#endif
+
 DIG_IO_LIST
 
 void DigIo::Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode)
