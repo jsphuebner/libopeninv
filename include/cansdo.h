@@ -23,24 +23,27 @@
 #include "canhardware.h"
 #include "canmap.h"
 
+#define SDO_REQUEST_DOWNLOAD  (1 << 5)
+#define SDO_REQUEST_UPLOAD    (2 << 5)
+#define SDO_REQUEST_SEGMENT   (3 << 5)
+#define SDO_TOGGLE_BIT        (1 << 4)
+#define SDO_RESPONSE_UPLOAD   (2 << 5)
+#define SDO_RESPONSE_DOWNLOAD (3 << 5)
+#define SDO_EXPEDITED         (1 << 1)
+#define SDO_SIZE_SPECIFIED    (1)
+#define SDO_WRITE             (SDO_REQUEST_DOWNLOAD | SDO_EXPEDITED | SDO_SIZE_SPECIFIED)
+#define SDO_READ              SDO_REQUEST_UPLOAD
+#define SDO_ABORT             0x80
+#define SDO_WRITE_REPLY       SDO_RESPONSE_DOWNLOAD
+#define SDO_READ_REPLY        (SDO_RESPONSE_UPLOAD | SDO_EXPEDITED | SDO_SIZE_SPECIFIED)
+#define SDO_ERR_INVIDX        0x06020000
+#define SDO_ERR_RANGE         0x06090030
+#define SDO_ERR_GENERAL       0x08000000
+
 class CanSdo: CanCallback, public IPutChar
 {
    public:
-      /** Default constructor */
-      CanSdo(CanHardware* hw, CanMap* cm = 0);
-      void HandleClear();
-      void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) override;
-      void SDOWrite(uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data);
-      void SDORead(uint8_t nodeId, uint16_t index, uint8_t subIndex);
-      bool SDOReadReply(uint32_t& data);
-      void SetNodeId(uint8_t id);
-      int GetPrintRequest() { return printRequest; }
-      void PutChar(char c);
-      void EnableSaving() { saveEnabled = true; }
-      void DisableSaving() { saveEnabled = false; }
-
-   private:
-      struct CAN_SDO
+      struct SdoFrame
       {
          uint8_t cmd;
          uint16_t index;
@@ -48,6 +51,21 @@ class CanSdo: CanCallback, public IPutChar
          uint32_t data;
       } __attribute__((packed));
 
+      /** Default constructor */
+      CanSdo(CanHardware* hw, CanMap* cm = 0);
+      CanHardware* GetHardware() { return canHardware; }
+      void HandleClear();
+      void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) override;
+      void SDOWrite(uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data);
+      void SDORead(uint8_t nodeId, uint16_t index, uint8_t subIndex);
+      bool SDOReadReply(uint32_t& data);
+      void SetNodeId(uint8_t id);
+      int GetPrintRequest() { return printRequest; }
+      SdoFrame* GetPendingUserspaceSdo() { return pendingUserSpaceSdo ? &pendingUserSpaceSdoFrame : 0; }
+      void SendSdoReply(SdoFrame* sdoFrame);
+      void PutChar(char c);
+
+   private:
       CanHardware* canHardware;
       CanMap* canMap;
       uint8_t nodeId;
@@ -64,12 +82,13 @@ class CanSdo: CanCallback, public IPutChar
       CanMap::CANPOS mapInfo;
       bool sdoReplyValid;
       uint32_t sdoReplyData;
-      bool saveEnabled;
+      SdoFrame pendingUserSpaceSdoFrame;
+      bool pendingUserSpaceSdo;
 
       void ProcessSDO(uint32_t data[2]);
-      void ProcessSpecialSDOObjects(CAN_SDO *sdo);
-      void ReadOrDeleteCanMap(CAN_SDO *sdo);
-      void AddCanMap(CAN_SDO *sdo, bool rx);
+      bool ProcessSpecialSDOObjects(SdoFrame *sdo);
+      void ReadOrDeleteCanMap(SdoFrame *sdo);
+      void AddCanMap(SdoFrame *sdo, bool rx);
       void InitiateSDOTransfer(uint8_t req, uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data);
 };
 
