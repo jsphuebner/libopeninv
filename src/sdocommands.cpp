@@ -30,7 +30,6 @@
 
 #define SDO_INDEX_SERIAL      0x5000
 #define SDO_INDEX_STRINGS     0x5001
-#define SDO_INDEX_COMMANDS    0x5002
 #define SDO_CMD_SAVE          0
 #define SDO_CMD_LOAD          1
 #define SDO_CMD_RESET         2
