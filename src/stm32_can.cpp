@@ -47,13 +47,21 @@ struct CANSPEED
 Stm32Can* Stm32Can::interfaces[MAX_INTERFACES];
 
 static const CANSPEED canSpeed[CanHardware::BaudLast] =
-#if CAN_PERIPH_SPEED == 32
+#if CAN_PERIPH_SPEED == 16
+{
+   { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 8 }, //125kbps at 16 MHz
+   { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 4 }, //250kbps at 16 MHz
+   { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 2 }, //500kbps at 16 MHz
+   { CAN_BTR_TS1_8TQ,  CAN_BTR_TS2_1TQ, 2 }, //800kbps at 16 MHz
+   { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 1 }, //1000kbps at 36 MHz
+};
+#elif CAN_PERIPH_SPEED == 32
 {
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 16}, //125kbps at 32 MHz
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 8 }, //250kbps at 32 MHz
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 4 }, //500kbps at 32 MHz
-   { CAN_BTR_TS1_6TQ, CAN_BTR_TS2_1TQ, 5 }, //800kbps at 36 MHz
-   { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 2 }, //1000kbps at 36 MHz
+   { CAN_BTR_TS1_8TQ,  CAN_BTR_TS2_1TQ, 4 }, //800kbps at 32 MHz
+   { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 2 }, //1000kbps at 32 MHz
 };
 #elif CAN_PERIPH_SPEED == 36
 {

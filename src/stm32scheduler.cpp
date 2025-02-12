@@ -30,8 +30,8 @@ Stm32Scheduler::Stm32Scheduler(uint32_t timer)
    /* Setup timers upcounting and auto preload enable */
    timer_enable_preload(timer);
    timer_direction_up(timer);
-   /* Set prescaler to count at 100 kHz */
-   timer_set_prescaler(timer, rcc_apb2_frequency / 100000 - 1);
+   /* Set prescaler to count at 100 kHz. Most timers run at 2xAPB1 frequency */
+   timer_set_prescaler(timer, (2 * rcc_apb1_frequency) / 100000 - 1);
    /* Maximum counter value */
    timer_set_period(timer, 0xFFFF);
 
