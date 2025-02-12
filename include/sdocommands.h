@@ -21,6 +21,8 @@
 #include "cansdo.h"
 #include "canmap.h"
 
+#define SDO_INDEX_COMMANDS    0x5002
+
 class SdoCommands
 {
    public:
