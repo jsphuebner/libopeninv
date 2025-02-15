@@ -19,8 +19,14 @@
 #ifndef DIGIO_H_INCLUDED
 #define DIGIO_H_INCLUDED
 
+
 #include <libopencm3/stm32/gpio.h>
 #include "digio_prj.h"
+
+#if __has_include("busio.h")
+    #include "busio.h"
+    #define BUSIO_ENABLED
+#endif
 
 namespace PinMode {
    enum PinMode
@@ -39,12 +45,22 @@ namespace PinMode {
    };
 }
 
+
 class DigIo
 {
 public:
-   #define DIG_IO_ENTRY(name, port, pin, mode) static DigIo name;
-   DIG_IO_LIST
-   #undef DIG_IO_ENTRY
+    #define DIG_IO_ENTRY(name, port, pin, mode) static DigIo name;
+
+#ifdef BUSIO_ENABLED    
+    #define BUS_IO_ENTRY(name, type, channel, mode) static BusIo name;
+#endif    
+
+    DIG_IO_LIST  // expands all real & MCP pins into static members
+    #undef DIG_IO_ENTRY
+
+#ifdef BUSIO_ENABLED    
+    #undef BUS_IO_ENTRY
+#endif
 
    /** Map GPIO pin object to hardware pin.
     * @param[in] port port to use for this pin
@@ -53,7 +69,6 @@ public:
     * @param[in] invert input or not to use
     */
    void Configure(uint32_t port, uint16_t pin, PinMode::PinMode pinMode);
-
 
    /**
    * Get pin value
@@ -89,8 +104,14 @@ private:
    uint16_t _pin;
    bool _invert;
 };
-//Configure all digio objects from the given list
+
+//Configure all digio and (optionally busio) objects from the given list
 #define DIG_IO_ENTRY(name, port, pin, mode) DigIo::name.Configure(port, pin, mode);
+
+#ifdef BUSIO_ENABLED    
+#define BUS_IO_ENTRY(name, busType, channel, mode) DigIo::name.Configure(busType, channel, mode);
+#endif
+
 #define DIG_IO_CONFIGURE(l) l
 
 #endif // DIGIO_H_INCLUDED
