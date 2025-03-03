@@ -63,8 +63,17 @@ void CanSdo::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
    }
    else if (canId == (SDO_REP_ID_BASE + remoteNodeId))
    {
-      sdoReplyValid = (data[0] & 0xFF) != SDO_ABORT;
-      sdoReplyData = data[1];
+      SdoFrame* sdoFrame = (SdoFrame*)data;
+      if (sdoFrame->index == SDO_INDEX_MAP_RX || sdoFrame->index == SDO_INDEX_MAP_TX)
+      {
+         if (sdoFrame->subIndex == 0)
+            InitiateSDOTransfer(SDO_WRITE, remoteNodeId, sdoFrame->index, 1, mapInfo.mapParam | (mapInfo.offsetBits << 16) | (mapInfo.numBits << 24));
+         else if (sdoFrame->subIndex == 1)
+            InitiateSDOTransfer(SDO_WRITE, remoteNodeId, sdoFrame->index, 2, (int32_t)(mapInfo.gain * 1000.0f) | (mapInfo.offset << 24));
+      }
+      sdoReplyValid = sdoFrame->cmd != SDO_ABORT;
+      sdoReplyData = sdoFrame->data;
+      //TODO: check indexes against request in case there are stray SDO replies
    }
 }
 
@@ -82,6 +91,13 @@ bool CanSdo::SDOReadReply(uint32_t& data)
 {
    data = sdoReplyData;
    return sdoReplyValid;
+}
+
+void CanSdo::RemoteMap(uint8_t nodeId, bool rx, uint32_t cobId, CanMap::CANPOS mapping)
+{
+   mapInfo = mapping;
+
+   InitiateSDOTransfer(SDO_WRITE, nodeId, rx ? SDO_INDEX_MAP_RX : SDO_INDEX_MAP_TX, 0, cobId);
 }
 
 void CanSdo::SetNodeId(uint8_t id)

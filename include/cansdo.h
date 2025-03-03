@@ -59,6 +59,7 @@ class CanSdo: CanCallback, public IPutChar
       void SDOWrite(uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data);
       void SDORead(uint8_t nodeId, uint16_t index, uint8_t subIndex);
       bool SDOReadReply(uint32_t& data);
+      void RemoteMap(uint8_t nodeId, bool rx, uint32_t cobId, CanMap::CANPOS mapping);
       void SetNodeId(uint8_t id);
       int GetPrintRequest() { return printRequest; }
       SdoFrame* GetPendingUserspaceSdo() { return pendingUserSpaceSdo ? &pendingUserSpaceSdoFrame : 0; }
