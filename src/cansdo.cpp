@@ -274,6 +274,7 @@ void CanSdo::ReadOrDeleteCanMap(SdoFrame* sdo)
    else if (sdo->cmd == SDO_WRITE && canPos != 0 && sdo->data == 0)
    {
       canMap->Remove(rx, sdo->index & 0x3f, itemIdx);
+      sdo->cmd = SDO_WRITE_REPLY;
    }
    else
    {
