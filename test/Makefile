@@ -4,12 +4,12 @@ CAN_SIGNED ?= 0
 CC		= gcc
 CPP		= g++
 LD		= g++
-CFLAGS    = -std=c99 -ggdb -DSTM32F1 -DCAN_SIGNED=$(CAN_SIGNED) -Itest-include -I../include -I../../libopencm3/include
-CPPFLAGS    = -ggdb -DSTM32F1 -DCAN_SIGNED=$(CAN_SIGNED) -Itest-include -I../include -I../../libopencm3/include
+CFLAGS    = -std=c99 -ggdb -fpermissive -DSTM32F1 -DCAN_SIGNED=$(CAN_SIGNED) -Itest-include -I../include -I../../libopencm3/include
+CPPFLAGS    = -ggdb -fpermissive -DSTM32F1 -DCAN_SIGNED=$(CAN_SIGNED) -Itest-include -I../include -I../../libopencm3/include
 LDFLAGS     = -g
 BINARY		= test_libopeninv
 OBJS		= test_main.o fu.o test_fu.o test_fp.o my_fp.o my_string.o params.o \
-			  stub_canhardware.o test_canmap.o canmap.o \
+			  stub_canhardware.o test_canmap.o canmap.o test_linbus.o linbus.o \
 			  stub_libopencm3.o
 VPATH = ../src ../libopeninv/src
 

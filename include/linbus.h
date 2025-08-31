@@ -19,6 +19,7 @@
 #ifndef LINBUS_H
 #define LINBUS_H
 
+#include <stdint.h>
 
 class LinBus
 {
@@ -41,8 +42,6 @@ class LinBus
          uint16_t pin;
       };
 
-      static uint8_t Checksum(uint8_t pid, uint8_t* data, int len);
-      static uint8_t Parity(uint8_t id);
 
       static const HwInfo hwInfo[];
       static const int payloadIndex = 3;
@@ -51,6 +50,10 @@ class LinBus
       const HwInfo* hw;
       uint8_t sendBuffer[11];
       uint8_t recvBuffer[12];
+
+   public:
+      static uint8_t Checksum(uint8_t pid, uint8_t* data, int len);
+      static uint8_t Parity(uint8_t id);
 };
 
 #endif // LINBUS_H

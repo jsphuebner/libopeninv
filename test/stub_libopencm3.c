@@ -56,3 +56,94 @@ uint32_t crc_calculate_block(uint32_t *datap, int size)
 void crc_reset(void)
 {
 }
+
+void gpio_set_mode(uint32_t gpioport, uint8_t mode, uint8_t cnf, uint16_t gpios)
+{
+}
+
+void usart_set_baudrate(uint32_t usart, uint32_t baud)
+{
+}
+
+void usart_set_databits(uint32_t usart, uint32_t bits)
+{
+}
+
+void usart_set_stopbits(uint32_t usart, uint32_t stopbits)
+{
+}
+
+void usart_set_mode(uint32_t usart, uint32_t mode)
+{
+}
+
+void usart_set_parity(uint32_t usart, uint32_t parity)
+{
+}
+
+void usart_set_flow_control(uint32_t usart, uint32_t flowcontrol)
+{
+}
+
+void usart_enable_tx_dma(uint32_t usart)
+{
+}
+
+void usart_enable_rx_dma(uint32_t usart)
+{
+}
+
+void usart_enable(uint32_t usart)
+{
+}
+
+void dma_channel_reset(uint32_t dma, uint8_t channel)
+{
+}
+
+void dma_set_read_from_memory(uint32_t dma, uint8_t channel)
+{
+}
+
+void dma_set_peripheral_address(uint32_t dma, uint8_t channel, uint32_t address)
+{
+}
+
+void dma_set_memory_address(uint32_t dma, uint8_t channel, uint32_t address)
+{
+}
+
+void dma_set_peripheral_size(uint32_t dma, uint8_t channel,
+			     uint32_t peripheral_size)
+{
+}
+
+void dma_set_memory_size(uint32_t dma, uint8_t channel, uint32_t mem_size)
+{
+}
+
+void dma_enable_memory_increment_mode(uint32_t dma, uint8_t channel)
+{
+}
+
+void dma_set_number_of_data(uint32_t dma, uint8_t channel, uint16_t number)
+{
+}
+
+uint16_t dma_get_number_of_data(uint32_t dma, uint8_t channel)
+{
+    return 0x5a;
+}
+
+void dma_clear_interrupt_flags(uint32_t dma, uint8_t channel,
+			       uint32_t interrupts)
+{
+}
+
+void dma_enable_channel(uint32_t dma, uint8_t channel)
+{
+}
+
+void dma_disable_channel(uint32_t dma, uint8_t channel)
+{
+}

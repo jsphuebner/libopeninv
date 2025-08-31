@@ -152,7 +152,7 @@ uint8_t LinBus::Checksum(uint8_t pid, uint8_t* data, int len)
    for (int i = 0; i < len; i++)
    {
       uint16_t tmp = (uint16_t)checksum + (uint16_t)data[i];
-      if (tmp > 256) tmp -= 255;
+      if (tmp >= 256) tmp -= 255;
       checksum = tmp;
    }
    return checksum ^ 0xff;
