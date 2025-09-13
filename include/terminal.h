@@ -32,7 +32,7 @@ typedef struct
 class Terminal: public IPutChar
 {
 public:
-   Terminal(uint32_t usart, const TERM_CMD* commands, bool remap = false, bool echo = true);
+   Terminal(uint32_t usart, const TERM_CMD* commands, bool remap = false, bool echo = true, bool enablefastuart = true);
    void SetNodeId(uint8_t id);
    void Run();
    void PutChar(char c);
@@ -82,6 +82,7 @@ private:
    char inBuf[bufSize];
    char outBuf[2][bufSize]; //double buffering
    char args[bufSize];
+   bool enablefastuart;
 };
 
 #endif // TERMINAL_H
