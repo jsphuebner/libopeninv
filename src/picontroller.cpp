@@ -19,12 +19,8 @@
 #include "picontroller.h"
 #include "my_math.h"
 
-PiController::PiController()
- : kp(0), ki(0), esum(0), refVal(0), frequency(1), maxY(0), minY(0)
-{
-}
-
-int32_t PiController::Run(s32fp curVal, int32_t feedForward)
+template<>
+int32_t PiControllerGeneric<s32fp, int32_t>::Run(s32fp curVal, int32_t feedForward)
 {
    s32fp err = refVal - curVal;
    esum += err;
@@ -40,7 +36,25 @@ int32_t PiController::Run(s32fp curVal, int32_t feedForward)
    return ylim;
 }
 
-int32_t PiController::RunProportionalOnly(s32fp curVal)
+template<>
+float PiControllerGeneric<float, float>::Run(float curVal, float feedForward)
+{
+   float err = refVal - curVal;
+   esum += err;
+
+   //anti windup
+   esum = MIN(esum, maxSum);
+   esum = MAX(esum, minSum);
+
+   int32_t y = feedForward + err * kp + (esum / frequency) * ki;
+   int32_t ylim = MAX(y, minY);
+   ylim = MIN(ylim, maxY);
+
+   return ylim;
+}
+
+template<>
+int32_t PiControllerGeneric<s32fp, int32_t>::RunProportionalOnly(s32fp curVal)
 {
    s32fp err = refVal - curVal;
 
@@ -51,8 +65,9 @@ int32_t PiController::RunProportionalOnly(s32fp curVal)
    return ylim;
 }
 
-void PiController::SetIntegralGain(int ki)
- {
+template<>
+void PiControllerGeneric<s32fp, int32_t>::SetIntegralGain(int32_t ki)
+{
     this->ki = ki;
 
     if (ki != 0)
@@ -60,4 +75,16 @@ void PiController::SetIntegralGain(int ki)
        minSum = FP_FROMINT((minY * frequency) / ABS(ki));
        maxSum = FP_FROMINT((maxY * frequency) / ABS(ki));
     }
- }
+}
+
+template<>
+void PiControllerGeneric<float, float>::SetIntegralGain(float ki)
+{
+    this->ki = ki;
+
+    if (ki != 0)
+    {
+       minSum = (minY * frequency) / ABS(ki);
+       maxSum = (maxY * frequency) / ABS(ki);
+    }
+}

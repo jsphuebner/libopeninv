@@ -22,36 +22,38 @@
 #include "my_fp.h"
 #include "my_math.h"
 
-class PiController
+template<typename Tin, typename Tout>
+class PiControllerGeneric
 {
    public:
       /** Default constructor */
-      PiController();
+      PiControllerGeneric()
+      : kp(0), ki(0), esum(0), refVal(0), frequency(1), maxY(0), minY(0) {}
 
       /** Set regulator proportional and integral gain.
        * \param kp New value to set for proportional gain
        * \param ki New value for integral gain
        */
-      void SetGains(int kp, int ki)
+      void SetGains(Tout kp, Tout ki)
       {
          SetProportionalGain(kp);
          SetIntegralGain(ki);
       }
 
-      void SetProportionalGain(int kp) { this->kp = kp; }
-      void SetIntegralGain(int ki);
+      void SetProportionalGain(Tout kp) { this->kp = kp; }
+      void SetIntegralGain(Tout ki);
 
       /** Set regulator target set point
        * \param val regulator target
        */
-      void SetRef(s32fp val) { refVal = val; }
+      void SetRef(Tin val) { refVal = val; }
 
-      s32fp GetRef() { return refVal; }
+      Tin GetRef() { return refVal; }
 
       /** Set maximum controller output
         * \param val actuator saturation value
         */
-      void SetMinMaxY(int32_t valMin, int32_t valMax)
+      void SetMinMaxY(Tout valMin, Tout valMax)
       { minY = valMin; maxY = valMax; SetIntegralGain(ki); }
 
       /** Set calling frequency
@@ -63,13 +65,13 @@ class PiController
        * \param curVal currently measured value
        * \return new actuator value
        */
-      int32_t Run(s32fp curVal, int32_t feedForward = 0);
+      Tout Run(Tin curVal, Tout feedForward = 0);
 
       /** Run controller to obtain a new actuator value, run only proportional part
        * \param curVal currently measured value
        * \return new actuator value
        */
-      int32_t RunProportionalOnly(s32fp curVal);
+      Tout RunProportionalOnly(Tin curVal);
 
       /** Reset integrator to 0 */
       void ResetIntegrator() { esum = 0; }
@@ -77,23 +79,25 @@ class PiController
       /** Preload Integrator to yield a certain output
        * @pre SetCallingFrequency() and SetGains() must be called first
       */
-      void PreloadIntegrator(int32_t yieldedOutput) { esum = ki != 0 ? FP_FROMINT((yieldedOutput * frequency) / ki) : 0; }
+      void PreloadIntegrator(Tout yieldedOutput) { esum = ki != 0 ? FP_FROMINT((yieldedOutput * frequency) / ki) : 0; }
 
       /** Debug function for getting integrator */
-      s32fp GetIntegrator() { return esum; }
+      Tin GetIntegrator() { return esum; }
 
    protected:
 
    private:
-      int32_t kp; //!< Proportional controller gain
-      int32_t ki; //!< Integral controller gain
-      s32fp esum; //!< Integrator
-      s32fp refVal; //!< control target
-      int32_t frequency; //!< Calling frequency
-      int32_t maxY; //!< upper actuator saturation value
-      int32_t minY; //!< lower actuator saturation value
-      int32_t minSum; //!< upper integrator boundary
-      int32_t maxSum; //!< lower integrator boundary
+      Tout kp; //!< Proportional controller gain
+      Tout ki; //!< Integral controller gain
+      Tin esum; //!< Integrator
+      Tin refVal; //!< control target
+      Tout frequency; //!< Calling frequency
+      Tout maxY; //!< upper actuator saturation value
+      Tout minY; //!< lower actuator saturation value
+      Tout minSum; //!< upper integrator boundary
+      Tout maxSum; //!< lower integrator boundary
 };
 
+typedef PiControllerGeneric<s32fp, int32_t> PiController;
+typedef PiControllerGeneric<float, float> PiControllerFloat;
 #endif // PIREGULATOR_H
