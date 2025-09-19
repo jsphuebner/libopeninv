@@ -106,6 +106,27 @@ ERROR_MESSAGE_NUM ErrorMessage::GetLastError()
    return lastError;
 }
 
+ERROR_MESSAGE_NUM ErrorMessage::GetErrorNum(uint8_t index)
+{
+   if (index < ERROR_BUF_SIZE)
+   {
+      if (errorBuffer[index].time > 0)
+         return errorBuffer[index].msg;
+   }
+
+   return ERROR_NONE;
+}
+
+uint32_t ErrorMessage::GetErrorTime(uint8_t index)
+{
+   if (index < ERROR_BUF_SIZE)
+   {
+      return errorBuffer[index].time;
+   }
+
+   return 0;
+}
+
 /** Print all errors currently in error memory */
 void ErrorMessage::PrintAllErrors()
 {
