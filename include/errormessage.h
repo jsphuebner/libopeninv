@@ -48,6 +48,8 @@ class ErrorMessage
       static void PrintAllErrors();
       static void PrintNewErrors();
       static ERROR_MESSAGE_NUM GetLastError();
+      static ERROR_MESSAGE_NUM GetErrorNum(uint8_t index);
+      static uint32_t GetErrorTime(uint8_t index);
    protected:
    private:
       static void PrintError(uint32_t time, ERROR_MESSAGE_NUM err);
