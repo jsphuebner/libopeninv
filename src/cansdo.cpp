@@ -29,8 +29,8 @@
 #define SDO_INDEX_MAP_RX      0x3001
 #define SDO_INDEX_MAP_RD      0x3100
 #define SDO_INDEX_STRINGS     0x5001
-#define SDO_INDEX_ERROR_NUM   0x5002
-#define SDO_INDEX_ERROR_TIME  0x5003
+#define SDO_INDEX_ERROR_NUM   0x5003
+#define SDO_INDEX_ERROR_TIME  0x5004
 
 
 #define PRINT_BUF_ENQUEUE(c)  printBuffer[(printByteIn++) & (sizeof(printBuffer) - 1)] = c
