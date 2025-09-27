@@ -27,6 +27,7 @@
 #include <libopencm3/stm32/rtc.h>
 #include <libopencm3/cm3/common.h>
 #include <libopencm3/cm3/nvic.h>
+#include <libopencm3/cm3/cortex.h>
 #include "stm32_can.h"
 
 #define MAX_INTERFACES        2
@@ -198,6 +199,9 @@ void Stm32Can::SetBaudrate(enum baudrates baudrate)
  */
 void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
 {
+   bool irq_masked = cm_is_masked_interrupts();
+   cm_disable_interrupts();
+
    can_disable_irq(canDev, CAN_IER_TMEIE);
 
    if (can_transmit(canDev, canId, canId > 0x7FF, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
@@ -214,8 +218,12 @@ void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
    {
       can_enable_irq(canDev, CAN_IER_TMEIE);
    }
-}
 
+   if (!irq_masked)
+   {
+      cm_enable_interrupts();
+   }
+}
 
 Stm32Can* Stm32Can::GetInterface(int index)
 {
