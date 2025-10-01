@@ -32,6 +32,7 @@
 #define PRINT_BUF_ENQUEUE(c)  printBuffer[(printByteIn++) & (sizeof(printBuffer) - 1)] = c
 #define PRINT_BUF_DEQUEUE()   printBuffer[(printByteOut++) & (sizeof(printBuffer) - 1)]
 #define PRINT_BUF_EMPTY()     ((printByteOut - printByteIn) == sizeof(printBuffer))
+#define PRINT_TIMEOUT         1000
 
 /** \brief
  *
@@ -204,10 +205,28 @@ void CanSdo::ProcessSDO(uint32_t data[2])
    canHardware->Send(0x580 + nodeId, data);
 }
 
+/** \brief count down PutChar character send timeout
+ *
+ * \param callingFrequency in ms. This is subtracted from the remaining wait time
+ * \return void
+ *
+ */
+void CanSdo::TriggerTimeout(int callingFrequency)
+{
+   if (printTimeout == 0) return;
+   if (callingFrequency >= printTimeout)
+      printTimeout -= callingFrequency;
+   else
+      printTimeout = 0;
+}
+
 void CanSdo::PutChar(char c)
 {
+   if (printTimeout == 0) return; //last call to PutChar resulted in a timeout. Do not recover until the next burst
+
+   printTimeout = PRINT_TIMEOUT;
    //When print buffer is full, wait
-   while (printByteIn == printByteOut);
+   while (printByteIn == printByteOut && printTimeout > 0);
 
    PRINT_BUF_ENQUEUE(c);
    printRequest = -1; //We can clear the print start trigger as we've obviously started printing
@@ -227,6 +246,7 @@ bool CanSdo::ProcessSpecialSDOObjects(SdoFrame* sdo)
       {
          sdo->data = 65535; //this should be the size of JSON but we don't know this in advance. Hmm.
          sdo->cmd = SDO_RESPONSE_UPLOAD | SDO_SIZE_SPECIFIED;
+         printTimeout = PRINT_TIMEOUT;
          printByteIn = 0;
          printByteOut = sizeof(printBuffer); //both point to the beginning of the physical buffer but virtually they are 64 bytes apart
          printRequest = sdo->subIndex;

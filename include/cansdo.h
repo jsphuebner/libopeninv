@@ -65,6 +65,7 @@ class CanSdo: CanCallback, public IPutChar
       SdoFrame* GetPendingUserspaceSdo() { return pendingUserSpaceSdo ? &pendingUserSpaceSdoFrame : 0; }
       void SendSdoReply(SdoFrame* sdoFrame);
       void PutChar(char c);
+      void TriggerTimeout(int callingFrequency);
 
    private:
       CanHardware* canHardware;
@@ -78,6 +79,7 @@ class CanSdo: CanCallback, public IPutChar
       volatile char printBuffer[64]; //Must be a power of 2 for efficient modulo calculation
       volatile uint32_t printByteIn;
       volatile uint32_t printByteOut;
+      volatile int printTimeout; //remaining time to wait
       Param::PARAM_NUM mapParam;
       uint32_t mapId;
       CanMap::CANPOS mapInfo;
