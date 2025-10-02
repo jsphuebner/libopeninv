@@ -41,7 +41,10 @@
  *
  */
 CanSdo::CanSdo(CanHardware* hw, CanMap* cm)
- : canHardware(hw), canMap(cm), nodeId(1), remoteNodeId(255), printRequest(-1)
+ : canHardware(hw), canMap(cm), nodeId(1), remoteNodeId(255), printRequest(-1),
+   printByteIn(0), printByteOut(sizeof(printBuffer)), printTimeout(PRINT_TIMEOUT),
+   mapParam(Param::PARAM_INVALID), mapId(0), sdoReplyValid(false), sdoReplyData(0),
+   pendingUserSpaceSdo(false)
 {
    canHardware->AddCallback(this);
    HandleClear();
@@ -213,11 +216,14 @@ void CanSdo::ProcessSDO(uint32_t data[2])
  */
 void CanSdo::TriggerTimeout(int callingFrequency)
 {
-   if (printTimeout == 0) return;
-   if (callingFrequency >= printTimeout)
+   if (printTimeout > 0)
+   {
       printTimeout -= callingFrequency;
-   else
+   }
+   if (printTimeout < 0)
+   {
       printTimeout = 0;
+   }
 }
 
 void CanSdo::PutChar(char c)
