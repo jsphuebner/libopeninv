@@ -28,6 +28,7 @@
 #include <libopencm3/cm3/common.h>
 #include <libopencm3/cm3/nvic.h>
 #include "stm32_can.h"
+#include "cortex.h"
 
 #define MAX_INTERFACES        2
 #define IDS_PER_BANK          4
@@ -36,6 +37,10 @@
 #ifndef CAN_PERIPH_SPEED
 #define CAN_PERIPH_SPEED 36
 #endif // CAN_PERIPH_SPEED
+
+#ifndef CAN_MAX_IRQ_PRIORITY
+#warning "CAN_MAX_IRQ_PRIORITY the highest interrupt priority users of the CAN interface may use is not defined"
+#endif // CAN_MAX_IRQ_PRIORITY
 
 struct CANSPEED
 {
@@ -198,6 +203,8 @@ void Stm32Can::SetBaudrate(enum baudrates baudrate)
  */
 void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
 {
+   cm_set_basepriority(CAN_MAX_IRQ_PRIORITY);
+
    can_disable_irq(canDev, CAN_IER_TMEIE);
 
    if (can_transmit(canDev, canId, canId > 0x7FF, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
@@ -214,8 +221,9 @@ void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
    {
       can_enable_irq(canDev, CAN_IER_TMEIE);
    }
-}
 
+   cm_set_basepriority(CM_BASEPRI_ENABLE_INTERRUPTS);
+}
 
 Stm32Can* Stm32Can::GetInterface(int index)
 {
