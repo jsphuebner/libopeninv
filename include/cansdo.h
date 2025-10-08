@@ -52,9 +52,9 @@ class CanSdo: CanCallback, public IPutChar
       } __attribute__((packed));
 
       /** Default constructor */
-      CanSdo(CanHardware* hw, CanMap* cm = 0);
+      explicit CanSdo(CanHardware* hw, CanMap* cm = 0);
       CanHardware* GetHardware() { return canHardware; }
-      void HandleClear();
+      void HandleClear() override;
       void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc) override;
       void SDOWrite(uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data);
       void SDORead(uint8_t nodeId, uint16_t index, uint8_t subIndex);
@@ -64,7 +64,8 @@ class CanSdo: CanCallback, public IPutChar
       int GetPrintRequest() { return printRequest; }
       SdoFrame* GetPendingUserspaceSdo() { return pendingUserSpaceSdo ? &pendingUserSpaceSdoFrame : 0; }
       void SendSdoReply(SdoFrame* sdoFrame);
-      void PutChar(char c);
+      void PutChar(char c) override;
+      void TriggerTimeout(int callingFrequency);
 
    private:
       CanHardware* canHardware;
@@ -78,6 +79,7 @@ class CanSdo: CanCallback, public IPutChar
       volatile char printBuffer[64]; //Must be a power of 2 for efficient modulo calculation
       volatile uint32_t printByteIn;
       volatile uint32_t printByteOut;
+      volatile int printTimeout; //remaining time to wait
       Param::PARAM_NUM mapParam;
       uint32_t mapId;
       CanMap::CANPOS mapInfo;
