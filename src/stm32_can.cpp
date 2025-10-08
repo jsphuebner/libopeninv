@@ -30,6 +30,13 @@
 #include "stm32_can.h"
 #include "cortex.h"
 
+//Some functions use the "register" keyword which C++ doesn't like
+//We can safely ignore that as we don't even use those functions
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wregister"
+#include <libopencm3/cm3/cortex.h>
+#pragma GCC diagnostic pop
+
 #define MAX_INTERFACES        2
 #define IDS_PER_BANK          4
 #define EXT_IDS_PER_BANK      2
@@ -38,8 +45,19 @@
 #define CAN_PERIPH_SPEED 36
 #endif // CAN_PERIPH_SPEED
 
-#ifndef CAN_MAX_IRQ_PRIORITY
-#warning "CAN_MAX_IRQ_PRIORITY the highest interrupt priority users of the CAN interface may use is not defined"
+// To allow concurrent sending of CAN frames from different contexts we need to
+// disable interrupts. Some projects have hard realtime requirements which mean
+// we cannot disable all interrupts. These projects should define the highest
+// interrupt priority users of the CAN interface here. If not defined we assume
+// that all interrupts can be disabled.
+//
+// CAN_MAX_IRQ_PRIORITY should match the priority passed to nvic_set_priority()
+#ifdef CAN_MAX_IRQ_PRIORITY
+#define DISABLE_CAN_USER_INTERRUPTS()  cm_set_basepriority(CAN_MAX_IRQ_PRIORITY);
+#define ENABLE_CAN_USER_INTERRUPTS()   cm_set_basepriority(CM_BASEPRI_ENABLE_INTERRUPTS);
+#else
+#define DISABLE_CAN_USER_INTERRUPTS()  cm_disable_interrupts()
+#define ENABLE_CAN_USER_INTERRUPTS()   cm_enable_interrupts()
 #endif // CAN_MAX_IRQ_PRIORITY
 
 struct CANSPEED
@@ -203,7 +221,7 @@ void Stm32Can::SetBaudrate(enum baudrates baudrate)
  */
 void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
 {
-   cm_set_basepriority(CAN_MAX_IRQ_PRIORITY);
+   DISABLE_CAN_USER_INTERRUPTS();
 
    can_disable_irq(canDev, CAN_IER_TMEIE);
 
@@ -222,7 +240,7 @@ void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
       can_enable_irq(canDev, CAN_IER_TMEIE);
    }
 
-   cm_set_basepriority(CM_BASEPRI_ENABLE_INTERRUPTS);
+   ENABLE_CAN_USER_INTERRUPTS();
 }
 
 Stm32Can* Stm32Can::GetInterface(int index)
