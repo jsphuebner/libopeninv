@@ -53,7 +53,7 @@ class CanHardware
    public:
       enum baudrates
       {
-         Baud125, Baud250, Baud500, Baud800, Baud1000, BaudLast
+         Baud125, Baud250, Baud500, Baud800, Baud1000, Baud33, BaudLast
       };
 
       CanHardware();
