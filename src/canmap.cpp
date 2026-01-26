@@ -182,6 +182,7 @@ void CanMap::SendAll()
    forEachCanMap(curMap, canSendMap)
    {
       uint32_t data[2] = { 0 }; //Had an issue with uint64_t, otherwise would have used that
+      uint8_t maxBit = 0;
 
       forEachPosMap(curPos, curMap)
       {
@@ -216,6 +217,7 @@ void CanMap::SendAll()
                data[0] |= ival << (curPos->offsetBits - 31);
                data[1] |= ival >> (63 - curPos->offsetBits);
             }
+            maxBit = MAX(maxBit, curPos->offsetBits);
          }
          else // little-endian
          {
@@ -235,10 +237,13 @@ void CanMap::SendAll()
                data[0] |= ival << curPos->offsetBits;
                data[1] |= ival >> (32 - curPos->offsetBits);
             }
+            maxBit = MAX(maxBit, curPos->offsetBits + curPos->numBits);
          }
       }
 
-      canHardware->Send(curMap->canId, data);
+      uint8_t numBytes = (maxBit + 7) / 8;
+
+      canHardware->Send(curMap->canId, data, numBytes);
    }
 }
 
