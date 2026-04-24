@@ -30,7 +30,7 @@ class Stm32Can: public CanHardware
 public:
    Stm32Can(uint32_t baseAddr, enum baudrates baudrate, bool remap = false);
    void SetBaudrate(enum baudrates baudrate);
-   void Send(uint32_t canId, uint32_t data[2], uint8_t len);
+   void Send(uint32_t canId, uint32_t data[2], uint8_t len, bool ext);
    void HandleTx();
    void HandleMessage(int fifo);
    static Stm32Can* GetInterface(int index);

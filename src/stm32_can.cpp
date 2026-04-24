@@ -77,7 +77,6 @@ static const CANSPEED canSpeed[CanHardware::BaudLast] =
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 2 }, //500kbps at 16 MHz
    { CAN_BTR_TS1_8TQ,  CAN_BTR_TS2_1TQ, 2 }, //800kbps at 16 MHz
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 1 }, //1000kbps at 36 MHz
-   { CAN_BTR_TS1_11TQ, CAN_BTR_TS2_4TQ, 30 }, //33.3kbps at 16 MHz
 };
 #elif CAN_PERIPH_SPEED == 32
 {
@@ -86,7 +85,6 @@ static const CANSPEED canSpeed[CanHardware::BaudLast] =
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 4 }, //500kbps at 32 MHz
    { CAN_BTR_TS1_8TQ,  CAN_BTR_TS2_1TQ, 4 }, //800kbps at 32 MHz
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 2 }, //1000kbps at 32 MHz
-   { CAN_BTR_TS1_11TQ, CAN_BTR_TS2_4TQ, 60 }, //33.3kbps at 32 MHz
 };
 #elif CAN_PERIPH_SPEED == 36
 {
@@ -95,7 +93,6 @@ static const CANSPEED canSpeed[CanHardware::BaudLast] =
    { CAN_BTR_TS1_4TQ, CAN_BTR_TS2_3TQ, 9 }, //500kbps at 36 MHz
    { CAN_BTR_TS1_5TQ, CAN_BTR_TS2_3TQ, 5 }, //800kbps at 36 MHz
    { CAN_BTR_TS1_6TQ, CAN_BTR_TS2_5TQ, 3 }, //1000kbps at 36 MHz
-   { CAN_BTR_TS1_8TQ, CAN_BTR_TS2_3TQ, 90}, //33.3kbps at 36 MHz
 };
 #else
 #error Unhandled CAN peripheral speed, please define prescalers
@@ -222,21 +219,38 @@ void Stm32Can::SetBaudrate(enum baudrates baudrate)
  * \return void
  *
  */
-void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
+void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len, bool ext)
 {
    DISABLE_CAN_USER_INTERRUPTS();
 
    can_disable_irq(canDev, CAN_IER_TMEIE);
 
-   if (can_transmit(canDev, canId, canId > 0x7FF, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
+   if(ext)
    {
-      /* enqueue in send buffer if all TX mailboxes are full */
-      sendBuffer[sendCnt].id = canId;
-      sendBuffer[sendCnt].len = len;
-      sendBuffer[sendCnt].data[0] = data[0];
-      sendBuffer[sendCnt].data[1] = data[1];
-      sendCnt++;
+     if (can_transmit(canDev, canId, ext, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
+     {
+        /* enqueue in send buffer if all TX mailboxes are full */
+        sendBuffer[sendCnt].id = canId;
+        sendBuffer[sendCnt].len = len;
+        sendBuffer[sendCnt].data[0] = data[0];
+        sendBuffer[sendCnt].data[1] = data[1];
+        sendCnt++;
+     }
    }
+   else
+   {
+     if (can_transmit(canDev, canId, canId > 0x7FF, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
+     {
+        /* enqueue in send buffer if all TX mailboxes are full */
+        sendBuffer[sendCnt].id = canId;
+        sendBuffer[sendCnt].len = len;
+        sendBuffer[sendCnt].data[0] = data[0];
+        sendBuffer[sendCnt].data[1] = data[1];
+        sendCnt++;
+     }
+
+   }
+
 
    if (sendCnt > 0)
    {
