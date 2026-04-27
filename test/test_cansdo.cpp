@@ -443,7 +443,7 @@ static void sdo_request_processed_after_set_node_id()
     sdo->subIndex = Param::ocurlim;
     sdo->data     = (uint32_t)newVal;
     // After SetNodeId(2), requests for node 2 (0x602) must be handled
-    vcuCan->HandleRx(0x602, frame, 8);
+    canStub->HandleRx(0x602, frame, 8);
 
     ASSERT(Param::Get(Param::ocurlim) == newVal);
 }
