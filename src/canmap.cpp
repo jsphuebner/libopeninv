@@ -181,70 +181,17 @@ void CanMap::SendAll()
 {
    forEachCanMap(curMap, canSendMap)
    {
-      uint32_t data[2] = { 0 }; //Had an issue with uint64_t, otherwise would have used that
-      uint8_t maxBit = 0;
-
-      forEachPosMap(curPos, curMap)
-      {
-         if (isSaving) return; //Only send mapped messages when not currently saving to flash
-
-         float val = Param::GetFloat((Param::PARAM_NUM)curPos->mapParam);
-
-         val *= curPos->gain;
-         val += curPos->offset;
-         // convert to a signed integer value before storing in an unsigned to
-         // avoid sign-extension problems when we start shifting and masking
-         uint32_t ival = (int32_t)val;
-         uint8_t numBits = ABS(curPos->numBits);
-         ival &= (1UL << numBits) - 1;
-
-         if (curPos->numBits < 0) // big-endian
-         {
-            //Swap byte order
-            const uint8_t* bptr = (uint8_t*)&ival;
-            ival = (bptr[0] << 24) | (bptr[1] << 16) | (bptr[2] << 8) | bptr[3];
-
-            if (curPos->offsetBits < 32) //all data in first word
-            {
-               data[0] |= ival >> (31 - curPos->offsetBits);
-            }
-            else if ((curPos->offsetBits + curPos->numBits) >= 31) //all data in second word
-            {
-               data[1] |= ival >> (63 - curPos->offsetBits);
-            }
-            else //data spans across both words
-            {
-               data[0] |= ival << (curPos->offsetBits - 31);
-               data[1] |= ival >> (63 - curPos->offsetBits);
-            }
-            maxBit = MAX(maxBit, curPos->offsetBits);
-         }
-         else // little-endian
-         {
-            if (curPos->offsetBits > 31)
-            {
-               // data entirely in the second word
-               data[1] |= ival << (curPos->offsetBits - 32);
-            }
-            else if ((curPos->offsetBits + curPos->numBits) <= 32)
-            {
-               // data entirely in the first word
-               data[0] |= ival << curPos->offsetBits;
-            }
-            else
-            {
-               // data spans both words
-               data[0] |= ival << curPos->offsetBits;
-               data[1] |= ival >> (32 - curPos->offsetBits);
-            }
-            maxBit = MAX(maxBit, curPos->offsetBits + curPos->numBits);
-         }
-      }
-
-      uint8_t numBytes = (maxBit + 7) / 8;
-
-      canHardware->Send(curMap->canId, data, numBytes);
+      if (!Send(curMap))
+         return;
    }
+}
+
+bool CanMap::SendByIndex(uint8_t ididx)
+{
+   if (ididx >= MAX_MESSAGES || canSendMap[ididx].first == MAX_ITEMS)
+      return false;
+
+   return Send(&canSendMap[ididx]);
 }
 
 /** \brief Add periodic CAN message
@@ -528,6 +475,74 @@ void CanMap::IterateCanMap(void (*callback)(Param::PARAM_NUM, uint32_t, uint8_t,
 
 /****************** Private methods and ISRs ********************/
 
+
+bool CanMap::Send(CANIDMAP *map)
+{
+   uint32_t data[2] = { 0 }; //Had an issue with uint64_t, otherwise would have used that
+   uint8_t maxBit = 0;
+
+   forEachPosMap(curPos, map)
+   {
+      if (isSaving) return false; //Only send mapped messages when not currently saving to flash
+
+      float val = Param::GetFloat((Param::PARAM_NUM)curPos->mapParam);
+
+      val *= curPos->gain;
+      val += curPos->offset;
+      // convert to a signed integer value before storing in an unsigned to
+      // avoid sign-extension problems when we start shifting and masking
+      uint32_t ival = (int32_t)val;
+      uint8_t numBits = ABS(curPos->numBits);
+      ival &= (1UL << numBits) - 1;
+
+      if (curPos->numBits < 0) // big-endian
+      {
+         //Swap byte order
+         const uint8_t* bptr = (uint8_t*)&ival;
+         ival = (bptr[0] << 24) | (bptr[1] << 16) | (bptr[2] << 8) | bptr[3];
+
+         if (curPos->offsetBits < 32) //all data in first word
+         {
+            data[0] |= ival >> (31 - curPos->offsetBits);
+         }
+         else if ((curPos->offsetBits + curPos->numBits) >= 31) //all data in second word
+         {
+            data[1] |= ival >> (63 - curPos->offsetBits);
+         }
+         else //data spans across both words
+         {
+            data[0] |= ival << (curPos->offsetBits - 31);
+            data[1] |= ival >> (63 - curPos->offsetBits);
+         }
+         maxBit = MAX(maxBit, curPos->offsetBits);
+      }
+      else // little-endian
+      {
+         if (curPos->offsetBits > 31)
+         {
+            // data entirely in the second word
+            data[1] |= ival << (curPos->offsetBits - 32);
+         }
+         else if ((curPos->offsetBits + curPos->numBits) <= 32)
+         {
+            // data entirely in the first word
+            data[0] |= ival << curPos->offsetBits;
+         }
+         else
+         {
+            // data spans both words
+            data[0] |= ival << curPos->offsetBits;
+            data[1] |= ival >> (32 - curPos->offsetBits);
+         }
+         maxBit = MAX(maxBit, curPos->offsetBits + curPos->numBits);
+      }
+   }
+
+   uint8_t numBytes = (maxBit + 7) / 8;
+
+   canHardware->Send(map->canId, data, numBytes);
+   return true;
+}
 
 void CanMap::ClearMap(CANIDMAP *canMap)
 {

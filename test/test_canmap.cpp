@@ -611,6 +611,22 @@ static void remove_at_max_messages_is_safe()
     ASSERT(canId == 0x300);
 }
 
+static void send_map_by_index_sends_only_selected_message()
+{
+    canMap->AddSend(Param::ocurlim, 0x101, 0, 8, 1.0, 0);
+    canMap->AddSend(Param::amp, 0x102, 0, 8, 1.0, 0);
+    Param::SetFloat(Param::ocurlim, 0x11);
+    Param::SetFloat(Param::amp, 0x22);
+
+    ASSERT(canMap->SendByIndex(1));
+    ASSERT(canStub->m_canId == 0x102);
+    ASSERT(canStub->m_data[0] == 0x22);
+    ASSERT(canStub->m_len == 1);
+
+    ASSERT(!canMap->SendByIndex(2));
+    ASSERT(!canMap->SendByIndex(MAX_MESSAGES));
+}
+
 static void create_and_delete_complex_map_once()
 {
     canMap->AddSend(Param::amp, 257, 24, 8, -1.00, 0);
@@ -1204,4 +1220,5 @@ REGISTER_TEST(
     create_and_delete_complex_map_once,
     get_map_at_max_messages_returns_null,
     remove_at_max_messages_is_safe,
+    send_map_by_index_sends_only_selected_message,
     RECEIVE_TESTS);
