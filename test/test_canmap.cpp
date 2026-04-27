@@ -581,6 +581,36 @@ static void fail_to_map_with_invalid_big_endian_total_struct_offset()
 }
 
 
+// Regression test: GetMap and Remove must not access out-of-bounds send map entry
+// at ididx/messageIdx == MAX_MESSAGES, which would alias canRecvMap[0]
+static void get_map_at_max_messages_returns_null()
+{
+    // Add a recv mapping so canRecvMap[0] has data
+    canMap->AddRecv(Param::ocurlim, 0x300, 0, 8, 1.0, 0);
+
+    uint32_t canId = 0;
+    // Querying tx map at index MAX_MESSAGES must return null (not canRecvMap[0]'s data)
+    const CanMap::CANPOS* pos = canMap->GetMap(false, MAX_MESSAGES, 0, canId);
+    ASSERT(pos == 0);
+}
+
+// Regression test: Remove with messageIdx == MAX_MESSAGES must not delete canRecvMap[0]
+static void remove_at_max_messages_is_safe()
+{
+    // Add a recv mapping so canRecvMap[0] has data
+    canMap->AddRecv(Param::ocurlim, 0x300, 0, 8, 1.0, 0);
+
+    // Attempting to remove a tx message at index MAX_MESSAGES must be a no-op
+    int removed = canMap->Remove(false, MAX_MESSAGES, 0);
+    ASSERT(removed == 0);
+
+    // The recv mapping must still be intact
+    uint32_t canId = 0;
+    const CanMap::CANPOS* pos = canMap->GetMap(true, 0, 0, canId);
+    ASSERT(pos != 0);
+    ASSERT(canId == 0x300);
+}
+
 static void create_and_delete_complex_map_once()
 {
     canMap->AddSend(Param::amp, 257, 24, 8, -1.00, 0);
@@ -1172,4 +1202,6 @@ REGISTER_TEST(
     fail_to_map_with_invalid_big_endian_length,
     fail_to_map_with_invalid_big_endian_total_struct_offset,
     create_and_delete_complex_map_once,
+    get_map_at_max_messages_returns_null,
+    remove_at_max_messages_is_safe,
     RECEIVE_TESTS);
