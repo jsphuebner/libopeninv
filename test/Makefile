@@ -10,7 +10,7 @@ LDFLAGS     = -g
 BINARY		= test_libopeninv
 OBJS		= test_main.o fu.o test_fu.o test_fp.o my_fp.o my_string.o params.o \
 			  stub_canhardware.o test_canmap.o canmap.o test_linbus.o linbus.o \
-			  stub_libopencm3.o
+			  stub_libopencm3.o test_cansdo.o cansdo.o errormessage.o printf.o
 VPATH = ../src ../libopeninv/src
 
 # Check if the variable GITHUB_RUN_NUMBER exists. When running on the github actions running, this
