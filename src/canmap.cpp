@@ -360,7 +360,7 @@ int CanMap::Remove(bool rx, uint8_t messageIdx, uint8_t itemidx)
    CANPOS *lastPosMap = 0;
    CANIDMAP *map = rx ? &canRecvMap[messageIdx] : &canSendMap[messageIdx];
 
-   if (messageIdx > MAX_MESSAGES || map->first == MAX_ITEMS) return 0;
+   if (messageIdx >= MAX_MESSAGES || map->first == MAX_ITEMS) return 0;
 
    forEachPosMap(curPos, map)
    {
@@ -487,7 +487,7 @@ const CanMap::CANPOS* CanMap::GetMap(bool rx, uint8_t ididx, uint8_t itemidx, ui
 {
    CANIDMAP *map = rx ? &canRecvMap[ididx] : &canSendMap[ididx];
 
-   if (ididx > MAX_MESSAGES || map->first == MAX_ITEMS) return 0;
+   if (ididx >= MAX_MESSAGES || map->first == MAX_ITEMS) return 0;
 
    forEachPosMap(curPos, map)
    {

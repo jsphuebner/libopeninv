@@ -47,7 +47,7 @@
 CanSdo::CanSdo(CanHardware* hw, CanMap* cm)
  : canHardware(hw), canMap(cm), nodeId(1), remoteNodeId(255), printRequest(-1),
    printByteIn(0), printByteOut(sizeof(printBuffer)), printTimeout(PRINT_TIMEOUT),
-   mapParam(Param::PARAM_INVALID), mapId(0), sdoReplyValid(false), sdoReplyData(0),
+   mapParam(Param::PARAM_INVALID), mapId(0xFFFFFFFF), mapInfo{}, sdoReplyValid(false), sdoReplyData(0),
    pendingUserSpaceSdo(false)
 {
    canHardware->AddCallback(this);
@@ -304,7 +304,7 @@ void CanSdo::ReadOrDeleteCanMap(SdoFrame* sdo)
 {
    bool rx = (sdo->index & 0x80) != 0;
    uint32_t canId;
-   uint8_t itemIdx = MAX(0, sdo->subIndex - 1) / 2;
+   uint8_t itemIdx = sdo->subIndex == 0 ? 0 : (sdo->subIndex - 1) / 2;
    const CanMap::CANPOS* canPos = canMap->GetMap(rx, sdo->index & 0x3f, itemIdx, canId);
 
    if (sdo->cmd == SDO_READ)
