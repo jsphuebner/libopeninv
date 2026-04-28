@@ -25,6 +25,7 @@
 
 #define SDO_INDEX_PARAMS      0x2000
 #define SDO_INDEX_PARAM_UID   0x2100
+#define SDO_INDEX_PARAM_FLAGS 0x2200
 #define SDO_INDEX_MAP_TX      0x3000
 #define SDO_INDEX_MAP_RX      0x3001
 #define SDO_INDEX_MAP_RD      0x3100
@@ -183,6 +184,29 @@ void CanSdo::ProcessSDO(uint32_t data[2])
          else if (sdo->cmd == SDO_READ)
          {
             sdo->data = Param::Get(paramIdx);
+            sdo->cmd = SDO_READ_REPLY;
+         }
+      }
+      else
+      {
+         sdo->cmd = SDO_ABORT;
+         sdo->data = SDO_ERR_INVIDX;
+      }
+   }
+   else if (sdo->index == SDO_INDEX_PARAM_FLAGS)
+   {
+      Param::PARAM_NUM paramIdx = (Param::PARAM_NUM)sdo->subIndex;
+
+      if (paramIdx < Param::PARAM_LAST)
+      {
+         if (sdo->cmd == SDO_WRITE)
+         {
+            Param::SetFlagsRaw(paramIdx, (uint8_t)sdo->data);
+            sdo->cmd = SDO_WRITE_REPLY;
+         }
+         else if (sdo->cmd == SDO_READ)
+         {
+            sdo->data = (uint32_t)Param::GetFlag(paramIdx);
             sdo->cmd = SDO_READ_REPLY;
          }
       }

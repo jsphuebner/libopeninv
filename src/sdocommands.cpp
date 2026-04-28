@@ -34,6 +34,7 @@
 #define SDO_CMD_LOAD          1
 #define SDO_CMD_RESET         2
 #define SDO_CMD_DEFAULTS      3
+#define SDO_CMD_CLEAR_CAN     4
 
 bool SdoCommands::saveEnabled = true;
 CanMap* SdoCommands::canMap;
@@ -95,6 +96,9 @@ void SdoCommands::ProcessStandardCommands(CanSdo::SdoFrame* sdoFrame)
       case SDO_CMD_DEFAULTS:
          Param::LoadDefaults();
          Param::Change(Param::PARAM_LAST);
+         break;
+      case SDO_CMD_CLEAR_CAN:
+         if (0 != canMap) canMap->Clear();
          break;
       default:
          sdoFrame->cmd = SDO_ABORT;
