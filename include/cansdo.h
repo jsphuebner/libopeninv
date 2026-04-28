@@ -40,8 +40,6 @@
 #define SDO_ERR_RANGE         0x06090030
 #define SDO_ERR_GENERAL       0x08000000
 
-#define SDO_INDEX_PARAM_FLAGS 0x2200
-
 class CanSdo: CanCallback, public IPutChar
 {
    public:

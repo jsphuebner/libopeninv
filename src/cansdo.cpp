@@ -25,6 +25,7 @@
 
 #define SDO_INDEX_PARAMS      0x2000
 #define SDO_INDEX_PARAM_UID   0x2100
+#define SDO_INDEX_PARAM_FLAGS 0x2200
 #define SDO_INDEX_MAP_TX      0x3000
 #define SDO_INDEX_MAP_RX      0x3001
 #define SDO_INDEX_MAP_RD      0x3100
