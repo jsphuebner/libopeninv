@@ -467,6 +467,64 @@ static void sdo_read_strings_initiates_print_request()
 }
 
 // ---------------------------------------------------------------------------
+// Parameter flags via SDO index SDO_INDEX_PARAM_FLAGS (0x2200)
+// ---------------------------------------------------------------------------
+
+static void sdo_read_param_flags_default()
+{
+    // By default flags are FLAG_NONE (0)
+    SendSdoRequest(SDO_READ, 0x2200, Param::ocurlim, 0);
+
+    ASSERT(canStub->m_canId == SdoRepId);
+    ASSERT(GetReply()->cmd == SDO_READ_REPLY);
+    ASSERT(GetReply()->data == (uint32_t)Param::FLAG_NONE);
+}
+
+static void sdo_write_and_read_param_flags()
+{
+    // Set FLAG_HIDDEN on ocurlim
+    SendSdoRequest(SDO_WRITE, 0x2200, Param::ocurlim, (uint32_t)Param::FLAG_HIDDEN);
+
+    ASSERT(canStub->m_canId == SdoRepId);
+    ASSERT(GetReply()->cmd == SDO_WRITE_REPLY);
+    ASSERT(Param::GetFlag(Param::ocurlim) == Param::FLAG_HIDDEN);
+
+    // Read it back
+    SendSdoRequest(SDO_READ, 0x2200, Param::ocurlim, 0);
+    ASSERT(GetReply()->cmd == SDO_READ_REPLY);
+    ASSERT(GetReply()->data == (uint32_t)Param::FLAG_HIDDEN);
+}
+
+static void sdo_write_param_flags_clear()
+{
+    // Pre-set the flag, then clear it via SDO
+    Param::SetFlag(Param::ocurlim, Param::FLAG_HIDDEN);
+    SendSdoRequest(SDO_WRITE, 0x2200, Param::ocurlim, (uint32_t)Param::FLAG_NONE);
+
+    ASSERT(canStub->m_canId == SdoRepId);
+    ASSERT(GetReply()->cmd == SDO_WRITE_REPLY);
+    ASSERT(Param::GetFlag(Param::ocurlim) == Param::FLAG_NONE);
+}
+
+static void sdo_read_param_flags_invalid_index()
+{
+    SendSdoRequest(SDO_READ, 0x2200, Param::PARAM_LAST, 0);
+
+    ASSERT(canStub->m_canId == SdoRepId);
+    ASSERT(GetReply()->cmd == SDO_ABORT);
+    ASSERT(GetReply()->data == SDO_ERR_INVIDX);
+}
+
+static void sdo_write_param_flags_invalid_index()
+{
+    SendSdoRequest(SDO_WRITE, 0x2200, Param::PARAM_LAST, (uint32_t)Param::FLAG_HIDDEN);
+
+    ASSERT(canStub->m_canId == SdoRepId);
+    ASSERT(GetReply()->cmd == SDO_ABORT);
+    ASSERT(GetReply()->data == SDO_ERR_INVIDX);
+}
+
+// ---------------------------------------------------------------------------
 // Test registration
 // ---------------------------------------------------------------------------
 
@@ -497,5 +555,10 @@ REGISTER_TEST(
     sdo_reply_sent_via_send_sdo_reply,
     sdo_request_ignored_for_wrong_node_id,
     sdo_request_processed_after_set_node_id,
-    sdo_read_strings_initiates_print_request
+    sdo_read_strings_initiates_print_request,
+    sdo_read_param_flags_default,
+    sdo_write_and_read_param_flags,
+    sdo_write_param_flags_clear,
+    sdo_read_param_flags_invalid_index,
+    sdo_write_param_flags_invalid_index
 );
