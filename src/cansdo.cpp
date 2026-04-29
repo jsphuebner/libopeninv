@@ -195,7 +195,7 @@ void CanSdo::ProcessSDO(uint32_t data[2])
    }
    else if (sdo->index == SDO_INDEX_PARAM_FLAGS)
    {
-      Param::PARAM_NUM paramIdx = (Param::PARAM_NUM)sdo->subIndex;
+      Param::PARAM_NUM paramIdx = Param::NumFromId(sdo->subIndex + ((sdo->index & 0xFF) << 8));
 
       if (paramIdx < Param::PARAM_LAST)
       {
