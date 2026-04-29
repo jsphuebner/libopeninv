@@ -222,21 +222,38 @@ void Stm32Can::SetBaudrate(enum baudrates baudrate)
  * \return void
  *
  */
-void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len)
+void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len, bool ext)
 {
    DISABLE_CAN_USER_INTERRUPTS();
 
    can_disable_irq(canDev, CAN_IER_TMEIE);
 
-   if (can_transmit(canDev, canId, canId > 0x7FF, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
+   if(ext)
    {
-      /* enqueue in send buffer if all TX mailboxes are full */
-      sendBuffer[sendCnt].id = canId;
-      sendBuffer[sendCnt].len = len;
-      sendBuffer[sendCnt].data[0] = data[0];
-      sendBuffer[sendCnt].data[1] = data[1];
-      sendCnt++;
+     if (can_transmit(canDev, canId, ext, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
+     {
+        /* enqueue in send buffer if all TX mailboxes are full */
+        sendBuffer[sendCnt].id = canId;
+        sendBuffer[sendCnt].len = len;
+        sendBuffer[sendCnt].data[0] = data[0];
+        sendBuffer[sendCnt].data[1] = data[1];
+        sendCnt++;
+     }
    }
+   else
+   {
+     if (can_transmit(canDev, canId, canId > 0x7FF, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
+     {
+        /* enqueue in send buffer if all TX mailboxes are full */
+        sendBuffer[sendCnt].id = canId;
+        sendBuffer[sendCnt].len = len;
+        sendBuffer[sendCnt].data[0] = data[0];
+        sendBuffer[sendCnt].data[1] = data[1];
+        sendCnt++;
+     }
+
+   }
+
 
    if (sendCnt > 0)
    {
