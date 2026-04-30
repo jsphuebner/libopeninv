@@ -34,7 +34,9 @@
 #define SDO_CMD_LOAD          1
 #define SDO_CMD_RESET         2
 #define SDO_CMD_DEFAULTS      3
-#define SDO_CMD_CLEAR_CAN     4
+#define SDO_CMD_START         4
+#define SDO_CMD_STOP          5
+#define SDO_CMD_CLEAR_CAN     6
 
 bool SdoCommands::saveEnabled = true;
 CanMap* SdoCommands::canMap;
