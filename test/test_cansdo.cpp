@@ -41,15 +41,40 @@ public:
     virtual void TestCaseSetup();
 };
 
+class UserSpaceCanSdo : public CanSdo
+{
+public:
+    explicit UserSpaceCanSdo(CanHardware* hw, CanMap* cm = 0) : CanSdo(hw, cm) {}
+
+    bool handleUserspaceSdo = false;
+    bool userspaceCalled = false;
+    SdoFrame lastUserspaceRequest{};
+
+    bool ProcessUserSpaceSdo(SdoFrame* sdo) override
+    {
+        userspaceCalled = true;
+        lastUserspaceRequest = *sdo;
+
+        if (handleUserspaceSdo)
+        {
+            sdo->cmd = SDO_WRITE_REPLY;
+            sdo->data = 0;
+            return true;
+        }
+
+        return false;
+    }
+};
+
 static std::unique_ptr<CanStub> canStub;
 static std::unique_ptr<CanMap>  canMap;
-static std::unique_ptr<CanSdo>  canSdo;
+static std::unique_ptr<UserSpaceCanSdo>  canSdo;
 
 void CanSdoTest::TestCaseSetup()
 {
     canStub = std::make_unique<CanStub>();
     canMap  = std::make_unique<CanMap>(canStub.get(), false);
-    canSdo  = std::make_unique<CanSdo>(canStub.get(), canMap.get());
+    canSdo  = std::make_unique<UserSpaceCanSdo>(canStub.get(), canMap.get());
     Param::LoadDefaults();
 }
 
@@ -383,30 +408,26 @@ static void sdo_write_error_time_aborts()
 
 static void sdo_unknown_index_goes_to_user_space()
 {
-    // Index 0x4000 is not handled by CanSdo itself
+    // Index 0x4000 is not handled internally and is offered to user-space first.
+    canSdo->handleUserspaceSdo = false;
     SendSdoRequest(SDO_WRITE, 0x4000, 0, 0xDEADBEEF);
 
-    // No CAN reply should be sent; the pending user-space SDO should be set
-    CanSdo::SdoFrame* pending = canSdo->GetPendingUserspaceSdo();
-    ASSERT(pending != nullptr);
-    ASSERT(pending->index == 0x4000);
-    ASSERT(pending->data == 0xDEADBEEF);
+    ASSERT(canSdo->userspaceCalled);
+    ASSERT(canSdo->lastUserspaceRequest.index == 0x4000);
+    ASSERT(canSdo->lastUserspaceRequest.data == 0xDEADBEEF);
+    ASSERT(canStub->m_canId == SdoRepId);
+    ASSERT(GetReply()->cmd == SDO_ABORT);
+    ASSERT(GetReply()->data == SDO_ERR_INVIDX);
 }
 
 static void sdo_reply_sent_via_send_sdo_reply()
 {
+    canSdo->handleUserspaceSdo = true;
     SendSdoRequest(SDO_WRITE, 0x4000, 0, 0x1234);
 
-    CanSdo::SdoFrame* pending = canSdo->GetPendingUserspaceSdo();
-    ASSERT(pending != nullptr);
-
-    // User space fills in the reply and calls SendSdoReply
-    pending->cmd  = SDO_WRITE_REPLY;
-    pending->data = 0;
-    canSdo->SendSdoReply(pending);
-
-    // After sending the reply, the pending flag must be cleared
-    ASSERT(canSdo->GetPendingUserspaceSdo() == nullptr);
+    ASSERT(canSdo->userspaceCalled);
+    ASSERT(canSdo->lastUserspaceRequest.index == 0x4000);
+    ASSERT(canSdo->lastUserspaceRequest.data == 0x1234);
     ASSERT(canStub->m_canId == SdoRepId);
     ASSERT(GetReply()->cmd == SDO_WRITE_REPLY);
 }
