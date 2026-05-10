@@ -35,7 +35,7 @@
 #define PAD_RIGHT 1
 #define PAD_ZERO 2
 
-extern "C" void putchar(char c);
+extern "C" int putchar(int c);
 
 class ExternPutChar: public IPutChar
 {
