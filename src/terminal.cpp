@@ -359,11 +359,8 @@ void Terminal::SendCurrentBuffer(uint32_t len)
 }
 
 //Backward compatibility for printf
-extern "C" int putchar(int c)
+extern "C" void libopeninv_putchar(char c)
 {
-   if (Terminal::defaultTerminal == 0)
-      return -1;
-
-   Terminal::defaultTerminal->PutChar(c);
-   return c;
+   if (Terminal::defaultTerminal != 0)
+      Terminal::defaultTerminal->PutChar(c);
 }

@@ -18,12 +18,12 @@
 */
 
 /*
-	putchar is the only external dependency for this file,
-	if you have a working putchar, leave it commented out.
+	libopeninv_putchar is the only external dependency for this file,
+	if you have a working libopeninv_putchar, leave it commented out.
 	If not, uncomment the define below and
 	replace outbyte(c) by your own function call.
 
-#define putchar(c) outbyte(c)
+#define libopeninv_putchar(c) outbyte(c)
 */
 
 #include <stdarg.h>
@@ -35,14 +35,14 @@
 #define PAD_RIGHT 1
 #define PAD_ZERO 2
 
-extern "C" int putchar(int c);
+extern "C" void libopeninv_putchar(char c);
 
 class ExternPutChar: public IPutChar
 {
 public:
    void PutChar(char c)
    {
-      putchar(c);
+      libopeninv_putchar(c);
    }
 };
 
