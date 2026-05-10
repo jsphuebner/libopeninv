@@ -361,6 +361,9 @@ void Terminal::SendCurrentBuffer(uint32_t len)
 //Backward compatibility for printf
 extern "C" int putchar(int c)
 {
+   if (Terminal::defaultTerminal == 0)
+      return -1;
+
    Terminal::defaultTerminal->PutChar(c);
    return c;
 }
