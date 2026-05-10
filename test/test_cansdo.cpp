@@ -46,16 +46,16 @@ class UserSpaceCanSdo : public CanSdo
 public:
     explicit UserSpaceCanSdo(CanHardware* hw, CanMap* cm = 0) : CanSdo(hw, cm) {}
 
-    bool handleUserspaceSdo = false;
+    bool handleUserSpaceSdo = false;
     bool userspaceCalled = false;
-    SdoFrame lastUserspaceRequest{};
+    SdoFrame lastUserSpaceRequest{};
 
     bool ProcessUserSpaceSdo(SdoFrame* sdo) override
     {
         userspaceCalled = true;
-        lastUserspaceRequest = *sdo;
+        lastUserSpaceRequest = *sdo;
 
-        if (handleUserspaceSdo)
+        if (handleUserSpaceSdo)
         {
             sdo->cmd = SDO_WRITE_REPLY;
             sdo->data = 0;
@@ -409,12 +409,12 @@ static void sdo_write_error_time_aborts()
 static void sdo_unknown_index_goes_to_user_space()
 {
     // Index 0x4000 is not handled internally and is offered to user-space first.
-    canSdo->handleUserspaceSdo = false;
+    canSdo->handleUserSpaceSdo = false;
     SendSdoRequest(SDO_WRITE, 0x4000, 0, 0xDEADBEEF);
 
     ASSERT(canSdo->userspaceCalled);
-    ASSERT(canSdo->lastUserspaceRequest.index == 0x4000);
-    ASSERT(canSdo->lastUserspaceRequest.data == 0xDEADBEEF);
+    ASSERT(canSdo->lastUserSpaceRequest.index == 0x4000);
+    ASSERT(canSdo->lastUserSpaceRequest.data == 0xDEADBEEF);
     ASSERT(canStub->m_canId == SdoRepId);
     ASSERT(GetReply()->cmd == SDO_ABORT);
     ASSERT(GetReply()->data == SDO_ERR_INVIDX);
@@ -422,12 +422,12 @@ static void sdo_unknown_index_goes_to_user_space()
 
 static void sdo_reply_sent_via_send_sdo_reply()
 {
-    canSdo->handleUserspaceSdo = true;
+    canSdo->handleUserSpaceSdo = true;
     SendSdoRequest(SDO_WRITE, 0x4000, 0, 0x1234);
 
     ASSERT(canSdo->userspaceCalled);
-    ASSERT(canSdo->lastUserspaceRequest.index == 0x4000);
-    ASSERT(canSdo->lastUserspaceRequest.data == 0x1234);
+    ASSERT(canSdo->lastUserSpaceRequest.index == 0x4000);
+    ASSERT(canSdo->lastUserSpaceRequest.data == 0x1234);
     ASSERT(canStub->m_canId == SdoRepId);
     ASSERT(GetReply()->cmd == SDO_WRITE_REPLY);
 }
