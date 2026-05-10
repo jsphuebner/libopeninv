@@ -147,3 +147,7 @@ void dma_enable_channel(uint32_t dma, uint8_t channel)
 void dma_disable_channel(uint32_t dma, uint8_t channel)
 {
 }
+
+void libopeninv_putchar(int c)
+{
+}

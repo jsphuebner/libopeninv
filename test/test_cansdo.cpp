@@ -30,9 +30,11 @@ class IPutChar { public: virtual void PutChar(char c) = 0; };
 #include "my_fp.h"
 #include "stub_canhardware.h"
 #include "test.h"
+#include "sdocommands.h"
 
 #include <memory>
 #include <cstdint>
+
 
 class CanSdoTest : public UnitTest
 {
@@ -69,6 +71,13 @@ public:
 static std::unique_ptr<CanStub> canStub;
 static std::unique_ptr<CanMap>  canMap;
 static std::unique_ptr<UserSpaceCanSdo>  canSdo;
+CanMap* SdoCommands::canMap;
+
+void SdoCommands::ProcessStandardCommands(CanSdo::SdoFrame* sdoFrame)
+{
+   sdoFrame->cmd = SDO_ABORT;
+   sdoFrame->data = SDO_ERR_INVIDX;
+}
 
 void CanSdoTest::TestCaseSetup()
 {
