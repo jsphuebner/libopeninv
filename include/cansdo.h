@@ -62,7 +62,7 @@ class CanSdo: CanCallback, public IPutChar
       void RemoteMap(uint8_t nodeId, bool rx, uint32_t cobId, CanMap::CANPOS mapping);
       void SetNodeId(uint8_t id);
       int GetPrintRequest() { return printRequest; }
-      SdoFrame* GetPendingUserspaceSdo() { return pendingUserSpaceSdo ? &pendingUserSpaceSdoFrame : 0; }
+      virtual bool ProcessUserSpaceSdo(SdoFrame*) { return false; }
       void SendSdoReply(SdoFrame* sdoFrame);
       void PutChar(char c) override;
       void TriggerTimeout(int callingFrequency);
@@ -85,11 +85,8 @@ class CanSdo: CanCallback, public IPutChar
       CanMap::CANPOS mapInfo;
       bool sdoReplyValid;
       uint32_t sdoReplyData;
-      SdoFrame pendingUserSpaceSdoFrame;
-      bool pendingUserSpaceSdo;
 
-      void ProcessSDO(uint32_t data[2]);
-      bool ProcessSpecialSDOObjects(SdoFrame *sdo);
+      void ProcessSDO(uint32_t* data);
       void ReadOrDeleteCanMap(SdoFrame *sdo);
       void AddCanMap(SdoFrame *sdo, bool rx);
       void InitiateSDOTransfer(uint8_t req, uint8_t nodeId, uint16_t index, uint8_t subIndex, uint32_t data);
