@@ -47,12 +47,12 @@ public:
     explicit UserSpaceCanSdo(CanHardware* hw, CanMap* cm = 0) : CanSdo(hw, cm) {}
 
     bool handleUserSpaceSdo = false;
-    bool userspaceCalled = false;
+    bool userSpaceCalled = false;
     SdoFrame lastUserSpaceRequest{};
 
     bool ProcessUserSpaceSdo(SdoFrame* sdo) override
     {
-        userspaceCalled = true;
+        userSpaceCalled = true;
         lastUserSpaceRequest = *sdo;
 
         if (handleUserSpaceSdo)
@@ -412,7 +412,7 @@ static void sdo_unknown_index_goes_to_user_space()
     canSdo->handleUserSpaceSdo = false;
     SendSdoRequest(SDO_WRITE, 0x4000, 0, 0xDEADBEEF);
 
-    ASSERT(canSdo->userspaceCalled);
+    ASSERT(canSdo->userSpaceCalled);
     ASSERT(canSdo->lastUserSpaceRequest.index == 0x4000);
     ASSERT(canSdo->lastUserSpaceRequest.data == 0xDEADBEEF);
     ASSERT(canStub->m_canId == SdoRepId);
@@ -425,7 +425,7 @@ static void sdo_reply_sent_via_send_sdo_reply()
     canSdo->handleUserSpaceSdo = true;
     SendSdoRequest(SDO_WRITE, 0x4000, 0, 0x1234);
 
-    ASSERT(canSdo->userspaceCalled);
+    ASSERT(canSdo->userSpaceCalled);
     ASSERT(canSdo->lastUserSpaceRequest.index == 0x4000);
     ASSERT(canSdo->lastUserSpaceRequest.data == 0x1234);
     ASSERT(canStub->m_canId == SdoRepId);
