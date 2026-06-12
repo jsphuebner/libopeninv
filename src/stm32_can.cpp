@@ -76,8 +76,9 @@ static const CANSPEED canSpeed[CanHardware::BaudLast] =
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 4 }, //250kbps at 16 MHz
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 2 }, //500kbps at 16 MHz
    { CAN_BTR_TS1_8TQ,  CAN_BTR_TS2_1TQ, 2 }, //800kbps at 16 MHz
-   { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 1 }, //1000kbps at 36 MHz
+   { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 1 }, //1000kbps at 16 MHz
    { CAN_BTR_TS1_11TQ, CAN_BTR_TS2_4TQ, 30 }, //33.3kbps at 16 MHz
+   { CAN_BTR_TS1_15TQ, CAN_BTR_TS2_4TQ, 8 }, //100kbps at 16 MHz
 };
 #elif CAN_PERIPH_SPEED == 32
 {
@@ -87,6 +88,7 @@ static const CANSPEED canSpeed[CanHardware::BaudLast] =
    { CAN_BTR_TS1_8TQ,  CAN_BTR_TS2_1TQ, 4 }, //800kbps at 32 MHz
    { CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 2 }, //1000kbps at 32 MHz
    { CAN_BTR_TS1_11TQ, CAN_BTR_TS2_4TQ, 60 }, //33.3kbps at 32 MHz
+   { CAN_BTR_TS1_15TQ, CAN_BTR_TS2_4TQ, 16}, //100kbps at 32 MHz
 };
 #elif CAN_PERIPH_SPEED == 36
 {
@@ -96,6 +98,7 @@ static const CANSPEED canSpeed[CanHardware::BaudLast] =
    { CAN_BTR_TS1_5TQ, CAN_BTR_TS2_3TQ, 5 }, //800kbps at 36 MHz
    { CAN_BTR_TS1_6TQ, CAN_BTR_TS2_5TQ, 3 }, //1000kbps at 36 MHz
    { CAN_BTR_TS1_8TQ, CAN_BTR_TS2_3TQ, 90}, //33.3kbps at 36 MHz
+   { CAN_BTR_TS1_15TQ, CAN_BTR_TS2_4TQ, 18}, //100kbps at 36 MHz
 };
 #else
 #error Unhandled CAN peripheral speed, please define prescalers
