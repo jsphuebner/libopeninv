@@ -58,7 +58,7 @@ class CanHardware
 
       CanHardware();
       virtual void SetBaudrate(enum baudrates baudrate) = 0;
-      void Send(uint32_t canId, uint32_t data[2], bool forceExt = false) { Send(canId, data, 8, forceExt); }
+      void Send(uint32_t canId, uint32_t data[2]) { Send(canId, data, 8); }
       void Send(uint32_t canId, uint8_t data[8], uint8_t len, bool forceExt = false) { Send(canId, (uint32_t*)data, len, forceExt); }
       virtual void Send(uint32_t canId, uint32_t data[2], uint8_t len, bool forceExt = false) = 0;
       void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
