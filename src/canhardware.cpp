@@ -29,7 +29,7 @@ public:
 static NullCallback nullCallback;
 
 CanHardware::CanHardware()
-   : nextUserMessageIndex(0), nextCallbackIndex(0)
+   : nextUserMessageIndex(0), sendCnt(0), nextCallbackIndex(0)
 {
    for (int i = 0; i < MAX_RECV_CALLBACKS; i++)
    {
@@ -98,4 +98,25 @@ void CanHardware::HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc)
    {
       recvCallback[i]->HandleRx(canId, data, dlc);
    }
+}
+
+void CanHardware::SendOrQueue(uint32_t canId, uint32_t data[2], uint8_t len, bool forceExt)
+{
+   if (!Transmit(canId, data, len, forceExt) && sendCnt < SENDBUFFER_LEN)
+   {
+      sendBuffer[sendCnt].id = canId;
+      sendBuffer[sendCnt].forceExt = forceExt;
+      sendBuffer[sendCnt].len = len;
+      sendBuffer[sendCnt].data[0] = data[0];
+      sendBuffer[sendCnt].data[1] = data[1];
+      sendCnt++;
+   }
+}
+
+int CanHardware::FlushSendBuffer()
+{
+   while (sendCnt > 0 && Transmit(sendBuffer[sendCnt - 1].id, sendBuffer[sendCnt - 1].data, sendBuffer[sendCnt - 1].len, sendBuffer[sendCnt - 1].forceExt))
+      sendCnt--;
+
+   return sendCnt;
 }

@@ -74,7 +74,7 @@ static const uint32_t baudrateValues[CanHardware::BaudLast] =
    { 125000, 250000, 500000, 800000, 1000000, 33333, 100000 };
 
 Mcp25625Can::Mcp25625Can(uint32_t spi, DigIo& cs, enum baudrates baudrate)
-   : sendCnt(0), spiDev(spi), csPin(cs), runMode(MODE_NORMAL)
+   : spiDev(spi), csPin(cs), runMode(MODE_NORMAL)
 {
    csPin.Set();
    Reset();
@@ -143,16 +143,7 @@ void Mcp25625Can::Send(uint32_t canId, uint32_t data[2], uint8_t len, bool force
 {
    DISABLE_CAN_USER_INTERRUPTS();
 
-   if (!Transmit(canId, forceExt, len, (uint8_t*)data) && sendCnt < SENDBUFFER_LEN)
-   {
-      /* enqueue in send buffer if all TX buffers are full */
-      sendBuffer[sendCnt].id = canId;
-      sendBuffer[sendCnt].forceExt = forceExt;
-      sendBuffer[sendCnt].len = len;
-      sendBuffer[sendCnt].data[0] = data[0];
-      sendBuffer[sendCnt].data[1] = data[1];
-      sendCnt++;
-   }
+   SendOrQueue(canId, data, len, forceExt);
 
    ENABLE_CAN_USER_INTERRUPTS();
 }
@@ -182,10 +173,7 @@ void Mcp25625Can::HandleTx()
 {
    DISABLE_CAN_USER_INTERRUPTS();
 
-   SENDBUFFER* b = sendBuffer; //alias
-
-   while (sendCnt > 0 && Transmit(b[sendCnt - 1].id, b[sendCnt - 1].forceExt, b[sendCnt - 1].len, (uint8_t*)b[sendCnt - 1].data))
-      sendCnt--;
+   FlushSendBuffer();
 
    ENABLE_CAN_USER_INTERRUPTS();
 }
@@ -252,8 +240,9 @@ void Mcp25625Can::SetMode(uint8_t mode)
 }
 
 /** \return true if message was loaded into a free transmit buffer */
-bool Mcp25625Can::Transmit(uint32_t id, bool forceExt, uint8_t len, const uint8_t* data)
+bool Mcp25625Can::Transmit(uint32_t id, uint32_t canData[2], uint8_t len, bool forceExt)
 {
+   const uint8_t* data = (const uint8_t*)canData;
    uint8_t status = ReadStatus();
    bool ext = (id > 0x7FF) | forceExt;
    uint8_t buf[5];

@@ -19,10 +19,6 @@
 #include "canhardware.h"
 #include "digio.h"
 
-#ifndef SENDBUFFER_LEN
-#define SENDBUFFER_LEN 20
-#endif // SENDBUFFER_LEN
-
 /** CAN FD controller MCP251863(T) (MCP2518FD compatible) connected via SPI.
  * Call HandleInterrupt() when the INT pin of the chip is asserted or poll it regularly.
  * By default the chip operates in classic CAN 2.0 mode. CAN FD is enabled via EnableFd().
@@ -64,16 +60,6 @@ public:
    void SetListenOnly(bool enable);
 
 private:
-   struct SENDBUFFER
-   {
-      uint32_t id;
-      bool forceExt;
-      uint8_t len;
-      uint32_t data[2];
-   };
-
-   SENDBUFFER sendBuffer[SENDBUFFER_LEN];
-   int sendCnt;
    uint32_t spiDev;
    DigIo& csPin;
    uint8_t runMode;
@@ -93,7 +79,8 @@ private:
    void WriteRam(uint16_t addr, const uint8_t* buf, uint16_t len);
    void SetMode(uint8_t mode);
    void ConfigureTimings();
-   bool Transmit(uint32_t id, bool ext, bool fd, bool brs, uint8_t len, const uint8_t* data);
+   bool Transmit(uint32_t canId, uint32_t data[2], uint8_t len, bool forceExt) override;
+   bool TransmitFrame(uint32_t id, bool ext, bool fd, bool brs, uint8_t len, const uint8_t* data);
    bool ReceiveMessage();
 };
 

@@ -21,10 +21,6 @@
 #define STM32_CAN_H_INCLUDED
 #include "canhardware.h"
 
-#ifndef SENDBUFFER_LEN
-#define SENDBUFFER_LEN 20
-#endif // SENDBUFFER_LEN
-
 class Stm32Can: public CanHardware
 {
 public:
@@ -36,17 +32,9 @@ public:
    static Stm32Can* GetInterface(int index);
 
 private:
-   struct SENDBUFFER
-   {
-      uint32_t id;
-      bool forceExt;
-      uint8_t len;
-      uint32_t data[2];
-   };
-
-   SENDBUFFER sendBuffer[SENDBUFFER_LEN];
-   int sendCnt;
    uint32_t canDev;
+
+   bool Transmit(uint32_t canId, uint32_t data[2], uint8_t len, bool forceExt) override;
 
    void ConfigureFilters();
    void SetFilterBank(int& idIndex, int& filterId, uint16_t* idList);

@@ -19,10 +19,6 @@
 #include "canhardware.h"
 #include "digio.h"
 
-#ifndef SENDBUFFER_LEN
-#define SENDBUFFER_LEN 20
-#endif // SENDBUFFER_LEN
-
 /** CAN controller MCP25625(T) (MCP2515 compatible) connected via SPI.
  * Call HandleInterrupt() when the INT pin of the chip is asserted or poll it regularly.
  */
@@ -47,16 +43,6 @@ public:
    void SetListenOnly(bool enable);
 
 private:
-   struct SENDBUFFER
-   {
-      uint32_t id;
-      bool forceExt;
-      uint8_t len;
-      uint32_t data[2];
-   };
-
-   SENDBUFFER sendBuffer[SENDBUFFER_LEN];
-   int sendCnt;
    uint32_t spiDev;
    DigIo& csPin;
    uint8_t runMode;
@@ -69,7 +55,7 @@ private:
    void BitModify(uint8_t addr, uint8_t mask, uint8_t val);
    uint8_t ReadStatus();
    void SetMode(uint8_t mode);
-   bool Transmit(uint32_t id, bool forceExt, uint8_t len, const uint8_t* data);
+   bool Transmit(uint32_t canId, uint32_t data[2], uint8_t len, bool forceExt) override;
    bool ReceiveBuffer(int index);
    bool IsUserMessage(uint32_t id, bool ext);
 };

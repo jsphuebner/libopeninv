@@ -123,7 +123,7 @@ static uint32_t FindBitTiming(uint32_t baud, uint32_t maxTq, uint32_t maxBrp, ui
 }
 
 Mcp251863Can::Mcp251863Can(uint32_t spi, DigIo& cs, enum baudrates baudrate)
-   : sendCnt(0), spiDev(spi), csPin(cs), runMode(MODE_CAN20), fdEnabled(false),
+   : spiDev(spi), csPin(cs), runMode(MODE_CAN20), fdEnabled(false),
      dataBaud(2000000), nominalBaud(baudrateValues[baudrate]), fdRxCallback(0)
 {
    csPin.Set();
@@ -180,16 +180,7 @@ void Mcp251863Can::Send(uint32_t canId, uint32_t data[2], uint8_t len, bool forc
 {
    DISABLE_CAN_USER_INTERRUPTS();
 
-   if (!Transmit(canId & 0x1FFFFFFF, (canId > 0x7FF) | forceExt, false, false, len, (uint8_t*)data) && sendCnt < SENDBUFFER_LEN)
-   {
-      /* enqueue in send buffer if transmit queue is full */
-      sendBuffer[sendCnt].id = canId;
-      sendBuffer[sendCnt].forceExt = forceExt;
-      sendBuffer[sendCnt].len = len;
-      sendBuffer[sendCnt].data[0] = data[0];
-      sendBuffer[sendCnt].data[1] = data[1];
-      sendCnt++;
-   }
+   SendOrQueue(canId, data, len, forceExt);
 
    ENABLE_CAN_USER_INTERRUPTS();
 }
@@ -200,7 +191,7 @@ bool Mcp251863Can::SendFd(uint32_t canId, const uint8_t* data, uint8_t len, bool
       return false;
 
    DISABLE_CAN_USER_INTERRUPTS();
-   bool ok = Transmit(canId & 0x1FFFFFFF, (canId > 0x7FF) | forceExt, true, brs, len, data);
+   bool ok = TransmitFrame(canId & 0x1FFFFFFF, (canId > 0x7FF) | forceExt, true, brs, len, data);
    ENABLE_CAN_USER_INTERRUPTS();
    return ok;
 }
@@ -220,10 +211,7 @@ void Mcp251863Can::HandleTx()
 {
    DISABLE_CAN_USER_INTERRUPTS();
 
-   SENDBUFFER* b = sendBuffer; //alias
-
-   while (sendCnt > 0 && Transmit(b[sendCnt - 1].id & 0x1FFFFFFF, (b[sendCnt - 1].id > 0x7FF) | b[sendCnt - 1].forceExt, false, false, b[sendCnt - 1].len, (uint8_t*)b[sendCnt - 1].data))
-      sendCnt--;
+   FlushSendBuffer();
 
    ENABLE_CAN_USER_INTERRUPTS();
 }
@@ -333,8 +321,13 @@ void Mcp251863Can::ConfigureTimings()
    SetMode(runMode);
 }
 
+bool Mcp251863Can::Transmit(uint32_t canId, uint32_t data[2], uint8_t len, bool forceExt)
+{
+   return TransmitFrame(canId & 0x1FFFFFFF, (canId > 0x7FF) | forceExt, false, false, len, (const uint8_t*)data);
+}
+
 /** \return true if message was put into the transmit queue */
-bool Mcp251863Can::Transmit(uint32_t id, bool ext, bool fd, bool brs, uint8_t len, const uint8_t* data)
+bool Mcp251863Can::TransmitFrame(uint32_t id, bool ext, bool fd, bool brs, uint8_t len, const uint8_t* data)
 {
    if (!(ReadReg(REG_C1TXQSTA) & 1)) //TXQNIF: queue not full
       return false;
