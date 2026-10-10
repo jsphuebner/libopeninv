@@ -25,6 +25,10 @@
 #define MAX_USER_MESSAGES 30
 #endif
 
+#ifndef SENDBUFFER_LEN
+#define SENDBUFFER_LEN 20
+#endif
+
 #ifndef MAX_RECV_CALLBACKS
 #define MAX_RECV_CALLBACKS 5
 #endif
@@ -78,7 +82,34 @@ class CanHardware
       int nextUserMessageIndex;
       uint32_t lastRxTimestamp;
 
+      /** \brief Try to put a message into a free hardware transmit buffer
+       *
+       * \return true: message was accepted by hardware, false: all transmit buffers are busy
+       */
+      virtual bool Transmit(uint32_t canId, uint32_t data[2], uint8_t len, bool forceExt) = 0;
+      /** \brief Transmit immediately or, if hardware is busy, store in send buffer
+       * Not reentrant, caller must prevent concurrent access, e.g. by disabling interrupts
+       */
+      void SendOrQueue(uint32_t canId, uint32_t data[2], uint8_t len, bool forceExt);
+      /** \brief Transmit buffered messages as long as hardware accepts them
+       * Not reentrant, caller must prevent concurrent access, e.g. by disabling interrupts
+       * \return number of messages still in send buffer
+       */
+      int FlushSendBuffer();
+      /** \brief Number of messages waiting in send buffer */
+      int GetSendBufferCount() { return sendCnt; }
+
    private:
+      struct SENDBUFFER
+      {
+         uint32_t id;
+         bool forceExt;
+         uint8_t len;
+         uint32_t data[2];
+      };
+
+      SENDBUFFER sendBuffer[SENDBUFFER_LEN];
+      int sendCnt;
       int nextCallbackIndex;
       CanCallback* recvCallback[MAX_RECV_CALLBACKS];
 

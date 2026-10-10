@@ -118,7 +118,7 @@ static const CANSPEED canSpeed[CanHardware::BaudLast] =
  *
  */
 Stm32Can::Stm32Can(uint32_t baseAddr, enum baudrates baudrate, bool remap)
-   : sendCnt(0), canDev(baseAddr)
+   : canDev(baseAddr)
 {
    switch (baseAddr)
    {
@@ -231,18 +231,9 @@ void Stm32Can::Send(uint32_t canId, uint32_t data[2], uint8_t len, bool forceExt
 
    can_disable_irq(canDev, CAN_IER_TMEIE);
 
-   if (can_transmit(canDev, canId, (canId > 0x7FF) | forceExt, false, len, (uint8_t*)data) < 0 && sendCnt < SENDBUFFER_LEN)
-   {
-      /* enqueue in send buffer if all TX mailboxes are full */
-      sendBuffer[sendCnt].id = canId;
-      sendBuffer[sendCnt].forceExt = forceExt;
-      sendBuffer[sendCnt].len = len;
-      sendBuffer[sendCnt].data[0] = data[0];
-      sendBuffer[sendCnt].data[1] = data[1];
-      sendCnt++;
-   }
+   SendOrQueue(canId, data, len, forceExt);
 
-   if (sendCnt > 0)
+   if (GetSendBufferCount() > 0)
    {
       can_enable_irq(canDev, CAN_IER_TMEIE);
    }
@@ -275,15 +266,15 @@ void Stm32Can::HandleMessage(int fifo)
 
 void Stm32Can::HandleTx()
 {
-   SENDBUFFER* b = sendBuffer; //alias
-
-   while (sendCnt > 0 && can_transmit(canDev, b[sendCnt - 1].id, (b[sendCnt - 1].id > 0x7FF) | b[sendCnt - 1].forceExt, false, b[sendCnt - 1].len, (uint8_t*)b[sendCnt - 1].data) >= 0)
-      sendCnt--;
-
-   if (sendCnt == 0)
+   if (FlushSendBuffer() == 0)
    {
       can_disable_irq(canDev, CAN_IER_TMEIE);
    }
+}
+
+bool Stm32Can::Transmit(uint32_t canId, uint32_t data[2], uint8_t len, bool forceExt)
+{
+   return can_transmit(canDev, canId, (canId > 0x7FF) | forceExt, false, len, (uint8_t*)data) >= 0;
 }
 
 /****************** Private methods and ISRs ********************/
