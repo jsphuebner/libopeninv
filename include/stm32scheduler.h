@@ -47,12 +47,19 @@ class Stm32Scheduler
        */
       int GetCpuLoad();
 
+      /** @brief Return number of missed executions of a task because it took longer than its period
+       * @param task index of task in order of AddTask() calls
+       * @return number of skipped execution slots
+       */
+      uint32_t GetOverruns(int task);
+
    protected:
    private:
       static const enum tim_oc_id ocMap[MAX_TASKS];
       void (*functions[MAX_TASKS]) (void);
       uint16_t periods[MAX_TASKS];
       uint16_t execTicks[MAX_TASKS];
+      uint32_t overruns[MAX_TASKS];
       uint32_t timer;
       int nextTask;
 };

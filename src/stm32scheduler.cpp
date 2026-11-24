@@ -36,6 +36,7 @@ Stm32Scheduler::Stm32Scheduler(uint32_t timer)
    timer_set_period(timer, 0xFFFF);
 
    nextTask = 0;
+   for (int i = 0; i < MAX_TASKS; i++) overruns[i] = 0;
 }
 
 void Stm32Scheduler::AddTask(void (*function)(void), uint16_t period)
@@ -70,10 +71,19 @@ void Stm32Scheduler::Run()
       if (i < nextTask && timer_get_flag(timer, TIM_SR_CC1IF << i))
       {
          uint16_t start = timer_get_counter(timer);
+         uint16_t scheduled = TIM_CCR(timer, i);
 
-         TIM_CCR(timer, i) += periods[i];
          functions[i]();
-         execTicks[i] = timer_get_counter(timer) - start;
+
+         uint16_t now = timer_get_counter(timer);
+         uint16_t elapsed = now - scheduled;
+         //Number of whole periods that passed since the scheduled time, i.e. missed slots
+         uint16_t missed = elapsed / periods[i];
+
+         overruns[i] += missed;
+         //Skip missed slots but stay on the task's time grid
+         TIM_CCR(timer, i) = scheduled + (missed + 1) * periods[i];
+         execTicks[i] = now - start;
          timer_clear_flag(timer, TIM_SR_CC1IF << i);
       }
       else if (i >= nextTask)
@@ -93,4 +103,10 @@ int Stm32Scheduler::GetCpuLoad()
       totalLoad += load;
    }
    return totalLoad;
+}
+
+uint32_t Stm32Scheduler::GetOverruns(int task)
+{
+   if (task < 0 || task >= nextTask) return 0;
+   return overruns[task];
 }
