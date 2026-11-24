@@ -42,7 +42,8 @@ static const struct ErrorDescriptor errorDescriptors[] =
 
 #define EXPANDED_LIST ERROR_MESSAGE_ENTRY(NONE, ERROR_DISPLAY) ERROR_MESSAGE_LIST
 #define ERROR_MESSAGE_ENTRY(id, type) __COUNTER__=id,
-const char* errorListString = STRINGIFY(EXPANDED_LIST);
+extern const char errorListString[];
+const char errorListString[] = STRINGIFY(EXPANDED_LIST);
 #undef ERROR_MESSAGE_ENTRY
 
 static const char* types[ERROR_LAST] =
