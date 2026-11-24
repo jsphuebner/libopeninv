@@ -25,6 +25,9 @@
 #include "terminal.h"
 #include "printf.h"
 
+#define TERM_BUF_MASK (TERM_BUF_DEPTH - 1)
+static_assert(TERM_BUF_DEPTH > 1 && (TERM_BUF_DEPTH & (TERM_BUF_DEPTH - 1)) == 0, "TERM_BUF_DEPTH must be a power of 2");
+
 #define HWINFO_ENTRIES (sizeof(hwInfo) / sizeof(struct HwInfo))
 
 #ifndef USART_BAUDRATE
@@ -50,11 +53,14 @@ Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap, bool ec
    txDmaEnabled(true),
    pCurCmd(NULL),
    lastIdx(0),
-   curBuf(0),
-   curIdx(0),
-   firstSend(true),
    echo(echo),
-   allowFastUart(allowFastUart)
+   allowFastUart(allowFastUart),
+   txTail(0),
+   txHead(0),
+   txUsed(0),
+   txInFlight(0),
+   flushRequested(false),
+   overrun(OVERRUN_BLOCK)
 {
    //Search info entry
    hw = hwInfo;
@@ -100,6 +106,10 @@ Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap, bool ec
 /** Run the terminal */
 void Terminal::Run()
 {
+   ReapDMA();
+   if (flushRequested)
+      StartDMA();
+
    int unusedBytes = dma_get_number_of_data(hw->dmactl, hw->dmarx);
    int currentIdx = bufSize - unusedBytes;
 
@@ -205,43 +215,102 @@ void Terminal::SetNodeId(uint8_t id)
 /*
  * Revision 1 hardware can only use synchronous sending as the DMA channel is
  * occupied by the encoder timer (TIM3, channel 3).
- * All other hardware can use DMA for seamless sending of data. We use double
- * buffering, so while one buffer is sent by DMA we can prepare the other
- * buffer to go next.
+ * All other hardware can use DMA for seamless sending of data. Characters are
+ * collected in a FIFO. The oldest contiguous chunk is handed to DMA when the
+ * FIFO is 70% full or a newline is sent.
 */
 void Terminal::PutChar(char c)
 {
    if (!txDmaEnabled)
    {
       usart_send_blocking(usart, c);
+      return;
    }
-   else if (c == '\n' || curIdx == (bufSize - 1))
-   {
-      outBuf[curBuf][curIdx] = c;
-      SendCurrentBuffer(curIdx + 1);
-      curIdx = 0;
-   }
-   else
-   {
-      outBuf[curBuf][curIdx] = c;
-      curIdx++;
-   }
+
+   Enqueue(c);
+
+   if (c == '\n' || txUsed * 10 >= TERM_BUF_DEPTH * 7)
+      Flush();
+}
+
+void Terminal::SetOverrunBehaviour(OverrunBehaviour behaviour)
+{
+   overrun = behaviour;
 }
 
 void Terminal::SendBinary(const uint8_t* data, uint32_t len)
 {
-   uint32_t limitedLen = len < bufSize ? len : bufSize;
+   if (!txDmaEnabled)
+   {
+      for (uint32_t i = 0; i < len; i++)
+         usart_send_blocking(usart, data[i]);
+      return;
+   }
 
-   for (uint32_t i = 0; i < limitedLen; i++)
-      outBuf[curBuf][i] = data[i];
-   SendCurrentBuffer(limitedLen);
+   for (uint32_t i = 0; i < len; i++)
+      Enqueue(data[i]);
+   Flush();
 }
 
 void Terminal::SendBinary(const uint32_t* data, uint32_t len)
 {
-   uint32_t limitedLen = len < (bufSize / sizeof(uint32_t)) ? len : bufSize / sizeof(uint32_t);
-   memcpy32((int*)outBuf[curBuf], (int*)data, limitedLen);
-   SendCurrentBuffer(limitedLen * sizeof(uint32_t));
+   SendBinary((const uint8_t*)data, len * sizeof(uint32_t));
+}
+
+//Release the DMA chunk if it has been sent completely
+void Terminal::ReapDMA()
+{
+   if (txInFlight > 0 && dma_get_interrupt_flag(hw->dmactl, hw->dmatx, DMA_TCIF))
+   {
+      txTail = (txTail + txInFlight) & TERM_BUF_MASK;
+      txUsed -= txInFlight;
+      txInFlight = 0;
+   }
+}
+
+//Hand the oldest contiguous unsent data to DMA, if DMA is idle
+void Terminal::StartDMA()
+{
+   ReapDMA();
+
+   if (txInFlight > 0 || txUsed == 0)
+      return;
+
+   uint32_t len = TERM_BUF_DEPTH - txTail;
+   if (txUsed < len) len = txUsed;
+
+   dma_disable_channel(hw->dmactl, hw->dmatx);
+   dma_set_number_of_data(hw->dmactl, hw->dmatx, len);
+   dma_set_memory_address(hw->dmactl, hw->dmatx, (uint32_t)&outBuf[txTail]);
+   dma_clear_interrupt_flags(hw->dmactl, hw->dmatx, DMA_TCIF);
+   dma_enable_channel(hw->dmactl, hw->dmatx);
+   txInFlight = len;
+   flushRequested = false;
+}
+
+//Request sending of all queued data, as soon as DMA is available
+void Terminal::Flush()
+{
+   flushRequested = true;
+   StartDMA();
+}
+
+bool Terminal::Enqueue(char c)
+{
+   ReapDMA();
+
+   while (txUsed >= TERM_BUF_DEPTH)
+   {
+      if (overrun == OVERRUN_DROP)
+         return false;
+      StartDMA(); //make sure something is in flight that will free up space
+      ReapDMA();
+   }
+
+   outBuf[txHead] = c;
+   txHead = (txHead + 1) & TERM_BUF_MASK;
+   txUsed++;
+   return true;
 }
 
 bool Terminal::KeyPressed()
@@ -342,20 +411,6 @@ const TERM_CMD* Terminal::CmdLookup(char *buf)
 void Terminal::Send(const char *str)
 {
    SendBinary((const uint8_t*)str, my_strlen(str));
-}
-
-void Terminal::SendCurrentBuffer(uint32_t len)
-{
-   while (!dma_get_interrupt_flag(hw->dmactl, hw->dmatx, DMA_TCIF) && !firstSend);
-
-   dma_disable_channel(hw->dmactl, hw->dmatx);
-   dma_set_number_of_data(hw->dmactl, hw->dmatx, len);
-   dma_set_memory_address(hw->dmactl, hw->dmatx, (uint32_t)outBuf[curBuf]);
-   dma_clear_interrupt_flags(hw->dmactl, hw->dmatx, DMA_TCIF);
-   dma_enable_channel(hw->dmactl, hw->dmatx);
-
-   curBuf = !curBuf; //switch buffers
-   firstSend = false; //only needed once so we don't get stuck in the while loop above
 }
 
 //Backward compatibility for printf
