@@ -60,7 +60,9 @@ Terminal::Terminal(uint32_t usart, const TERM_CMD* commands, bool remap, bool ec
    txUsed(0),
    txInFlight(0),
    flushRequested(false),
-   overrun(OVERRUN_BLOCK)
+   overrun(OVERRUN_BLOCK),
+   droppedLines(0),
+   lineDropped(false)
 {
    //Search info entry
    hw = hwInfo;
@@ -299,18 +301,40 @@ bool Terminal::Enqueue(char c)
 {
    ReapDMA();
 
+   bool stored = false;
+
    while (txUsed >= TERM_BUF_DEPTH)
    {
       if (overrun == OVERRUN_DROP)
-         return false;
+      {
+         lineDropped = true;
+         break;
+      }
       StartDMA(); //make sure something is in flight that will free up space
       ReapDMA();
    }
 
-   outBuf[txHead] = c;
-   txHead = (txHead + 1) & TERM_BUF_MASK;
-   txUsed++;
-   return true;
+   if (txUsed < TERM_BUF_DEPTH)
+   {
+      outBuf[txHead] = c;
+      txHead = (txHead + 1) & TERM_BUF_MASK;
+      txUsed++;
+      stored = true;
+   }
+
+   //A line counts as dropped once, when its terminating newline is processed
+   if (c == '\n' && lineDropped)
+   {
+      droppedLines++;
+      lineDropped = false;
+   }
+
+   return stored;
+}
+
+uint32_t Terminal::GetDroppedLines()
+{
+   return droppedLines;
 }
 
 bool Terminal::KeyPressed()

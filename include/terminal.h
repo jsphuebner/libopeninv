@@ -49,6 +49,8 @@ public:
    void DisableTxDMA();
    /** Choose what happens when the transmit FIFO is full: drop new characters or block until space is free */
    void SetOverrunBehaviour(OverrunBehaviour behaviour);
+   /** Number of lines that lost at least one character due to overruns (OVERRUN_DROP) */
+   uint32_t GetDroppedLines();
    static Terminal* defaultTerminal;
 
 private:
@@ -97,6 +99,8 @@ private:
    uint32_t txInFlight; //size of chunk currently handed to DMA
    bool flushRequested;
    OverrunBehaviour overrun;
+   uint32_t droppedLines;
+   bool lineDropped; //current line has lost characters
 };
 
 #endif // TERMINAL_H
