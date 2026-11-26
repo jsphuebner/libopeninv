@@ -21,6 +21,10 @@
 #include <stdint.h>
 #include "printf.h"
 
+#ifndef TERM_BUF_DEPTH
+#define TERM_BUF_DEPTH 256 //must be a power of 2
+#endif
+
 class Terminal;
 
 typedef struct
@@ -32,6 +36,8 @@ typedef struct
 class Terminal: public IPutChar
 {
 public:
+   enum OverrunBehaviour { OVERRUN_DROP, OVERRUN_BLOCK };
+
    Terminal(uint32_t usart, const TERM_CMD* commands, bool remap = false, bool echo = true, bool allowFastUart = true);
    void SetNodeId(uint8_t id);
    void Run();
@@ -41,6 +47,10 @@ public:
    bool KeyPressed();
    void FlushInput();
    void DisableTxDMA();
+   /** Choose what happens when the transmit FIFO is full: drop new characters or block until space is free */
+   void SetOverrunBehaviour(OverrunBehaviour behaviour);
+   /** Number of lines that lost at least one character due to overruns (OVERRUN_DROP) */
+   uint32_t GetDroppedLines();
    static Terminal* defaultTerminal;
 
 private:
@@ -62,7 +72,10 @@ private:
    void FastUart(char* arg);
    void Echo(char* arg);
    void Send(const char *str);
-   void SendCurrentBuffer(uint32_t len);
+   bool Enqueue(char c);
+   void ReapDMA();
+   void StartDMA();
+   void Flush();
 
    static const int bufSize = 128;
    static const HwInfo hwInfo[];
@@ -75,14 +88,19 @@ private:
    bool txDmaEnabled;
    const TERM_CMD *pCurCmd;
    int lastIdx;
-   uint8_t curBuf;
-   uint32_t curIdx;
-   bool firstSend;
    bool echo;
    char inBuf[bufSize];
-   char outBuf[2][bufSize]; //double buffering
+   char outBuf[TERM_BUF_DEPTH]; //tx fifo
    char args[bufSize];
    bool allowFastUart;
+   uint32_t txTail;     //oldest byte not yet fully sent
+   uint32_t txHead;     //next write position
+   uint32_t txUsed;     //bytes in fifo, including the chunk currently in DMA
+   uint32_t txInFlight; //size of chunk currently handed to DMA
+   bool flushRequested;
+   OverrunBehaviour overrun;
+   uint32_t droppedLines;
+   bool lineDropped; //current line has lost characters
 };
 
 #endif // TERMINAL_H
